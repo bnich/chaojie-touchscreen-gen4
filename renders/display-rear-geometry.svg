@@ -17,10 +17,10 @@
   <rect x="0" y="0" width="159.99" height="93.98" rx="9" class="ink" stroke-width="0.7"/>
 
   <!-- flat bearing band -->
-  <rect x="0" y="20" width="159.99" height="54.6" fill="#58a6ff" opacity=".08"/>
-  <line x1="0" y1="20" x2="159.99" y2="20" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
-  <line x1="0" y1="74.6" x2="159.99" y2="74.6" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
-  <text x="5" y="24.4" fill="#58a6ff" font-size="3.4">flat bearing band — Y 20.0 … 74.6. Outside it the shell chamfers away.</text>
+  <rect x="0" y="23" width="159.99" height="48.6" fill="#58a6ff" opacity=".08"/>
+  <line x1="0" y1="23" x2="159.99" y2="23" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
+  <line x1="0" y1="71.6" x2="159.99" y2="71.6" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
+  <text x="5" y="27.4" fill="#58a6ff" font-size="3.4">flat bearing band — Y 23.0 … 71.6 (measured). Outside it the shell chamfers away.</text>
 
   <!-- cable boot -->
   <circle cx="80" cy="40.9" r="10.85" class="boot" stroke-width="0.7"/>

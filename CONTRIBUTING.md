@@ -7,7 +7,7 @@ cross-checked, but taken from **one unit**. Confirmed measurements from another 
 upgrade several ⬜ figures to ✅. Especially wanted:
 
 - The Y position of the upper hole row (currently drawing-derived at 40.9).
-- The flat band's real limits (20.0 / 74.6).
+- The flat band's real limits (23.0 / 71.6 — measured on one unit by eye, ±1 mm).
 - Whether the Ø21.7 collar is raised or flush.
 - The display's weight.
 

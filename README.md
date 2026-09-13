@@ -9,7 +9,7 @@ tilt joint that **cannot creep**, a two-piece handlebar clamp, and a cosmetic re
 integrated sun brow — because on a moped the back of this display faces the world.
 
 <p align="center">
-  <img src="renders/display-rear-geometry.svg" width="88%" alt="Dimensioned rear-face drawing of the Chaojie CJ-V5-04, showing the three M5 mounting holes at (39.50, 40.9), (120.50, 40.9) and (80.00, 63.28), the Ø21.7 cable-boot collar at the centre, and the flat bearing band between Y 20.0 and Y 74.6">
+  <img src="renders/display-rear-geometry.svg" width="88%" alt="Dimensioned rear-face drawing of the Chaojie CJ-V5-04, showing the three M5 mounting holes at (39.50, 40.9), (120.50, 40.9) and (80.00, 63.28), the Ø21.7 cable-boot collar at the centre, and the flat bearing band between Y 23.0 and Y 71.6">
 </p>
 
 ---
@@ -20,7 +20,7 @@ integrated sun brow — because on a moped the back of this display faces the wo
 
 | Part | State |
 |---|---|
-| **Fit gauge** | ✅ done — [`stl/gen4-gauge.stl`](stl) |
+| **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
 | Face spline (tilt joint) | 🔨 in progress |
 | Yoke | ⬜ next |
 | Arm + clamp cap | ⬜ |

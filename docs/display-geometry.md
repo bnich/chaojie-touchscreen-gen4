@@ -28,8 +28,10 @@ Least-squares circle fits on the three mounting holes then land on every printed
 Four independent agreements. Where a figure below is drawing-derived rather than printed, it is
 marked.
 
-**Confirmed on a physical unit:** the thread size and depth, the up/down orientation, and that the
-Ø13 stub is the cable bundle. The linear dimensions remain drawing-derived.
+**Confirmed on a physical unit:** the thread size and depth, the up/down orientation, that the Ø13
+stub is the cable bundle, **the whole hole pattern** (a printed gauge bolted on), and **the flat
+bearing band** — which the drawing got wrong by 3 mm at each end (§4.2). The remaining linear
+dimensions are still drawing-derived.
 
 ---
 
@@ -55,13 +57,16 @@ be got wrong.** Only the up/down orientation matters, and the lone hole is **bel
 | — upper right | **(120.50, 40.9)** | the pair is **81.0 apart and dead level** |
 | — lone hole | **(80.00, 63.28)** | **on the centreline**, 22.39 below the pair |
 | — triangle sides | slant sides **46.46** each | isosceles |
-| Flat bearing band | **Y 20.0 … 74.6** | 54.6 mm strip; outside it the shell chamfers away |
+| Flat bearing band | **Y 23.0 … 71.6** | ⭐ **measured on hardware** — 48.6 mm strip; outside it the shell chamfers away. See §4.2 |
 | Cable boot | **Ø13.0 × 22.3 proud**, in a **Ø21.7** collar, at **(80.0, 40.9)** | total depth over it **47.8** |
 | Microphone | **(80.2, 76.0)** | labelled 送话器孔 on the drawing |
 | Case screws | (10.8, 11.0) · (80.1, 9.9) · (149.5, 11.0) · (33.1, 84.2) · (127.3, 84.2) | ~Ø8.5 pockets |
 
-Drawing-derived rather than printed: the Y of the upper hole row (40.9), the flat-band limits, the
-boot and collar diameters, the microphone position and the case-screw positions.
+⭐ **The hole pattern is confirmed on hardware** — a printed gauge carrying all three holes went onto a
+display, all three M5 × 12 bolts pulled it tight, and it sat flat.
+
+Still drawing-derived rather than measured: the Y of the upper hole row (40.9), the boot and collar
+diameters, the microphone position and the case-screw positions.
 
 ---
 
@@ -80,11 +85,20 @@ This repository's parts are **8 mm** thick and use **M5 × 12** (4 mm engaged). 
 works equally well if that is what you stock. **No washer under the head** — it eats engagement you
 do not have.
 
-### 4.2 You can only bear on the flat band, Y 20.0 … 74.6
+### 4.2 You can only bear on the flat band, Y 23.0 … 71.6
 
-Outside that 54.6 mm strip the shell chamfers away. A bracket that touches beyond it is rocking on
+Outside that 48.6 mm strip the shell chamfers away. A bracket that touches beyond it is rocking on
 two lines instead of sitting on a face, and it will work the bolts loose. All three holes sit inside
-the band — the lone one with 11.3 mm to spare.
+the band — the lone one with 8.3 mm to spare.
+
+⭐ **This figure was corrected by printing, and the correction is instructive.** Derived from the
+manual's side elevation the band reads as **20.0 … 74.6**. A fit gauge cut to exactly that overhung
+by ~3 mm at each end, hanging over the chamfer rather than touching. **An elevation shows where a
+surface begins to chamfer, and that is a soft transition — the genuinely flat area stops about 3 mm
+inboard of that line.** A bearing surface taken off a drawing will always be the optimistic figure.
+Worth knowing if you are deriving your own from the manual.
+
+⬜ The 3 mm is an eyeball off the gauge's edges, not a caliper reading; good to ~±1 mm.
 
 ### 4.3 The cable boot is **inside** the bolt triangle
 

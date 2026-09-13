@@ -59,7 +59,7 @@ boot_d        = 13.0;
 boot_collar_d = 21.7;     // size the clearance on THIS, not on boot_d
 boot_proud    = 22.3;     // how far it stands off the rear face
 boot_clear_d  = 24;       // Ø24 relief, sized on the Ø21.7 collar, not the
-                          // Ø13 boot (docs/display-geometry.md "opening of at least Ø24 ...
+                          // Ø13 boot (docs/display-geometry.md: "opening of at least Ø24 ...
                           // Design the plate with a Ø24 relief either way —
                           // it costs nothing"). Shared by every part that
                           // has to let the boot through (gauge below, the
@@ -69,9 +69,23 @@ boot_clear_d  = 24;       // Ø24 relief, sized on the Ø21.7 collar, not the
 
 /* [DISPLAY — FLAT BAND] the only part of the back that is flat enough to
    bear on. Outside this band the shell chamfers away and a bracket would
-   rock on two lines. */
-band_y0 = 20.0;
-band_y1 = 74.6;
+   rock on two lines.
+
+   ⭐ MEASURED ON HARDWARE 2026-09-13, and it corrects the drawing.
+   The printed fit gauge spanned the drawing-derived 20.0..74.6 and overhung
+   by ~3 mm at each end, hanging over the chamfer rather than touching. So
+   the flat area is ~6 mm narrower than the side view suggested.
+
+   Why the drawing misled: the side view shows where the surface BEGINS to
+   chamfer, which is a soft transition — the genuinely flat bearing area
+   stops about 3 mm inboard of that line. A figure read off an elevation
+   will always be the optimistic one. This is the number to trust; the
+   gauge sat flat on it with all three M5s pulled up. */
+band_y0 = 23.0;   // was 20.0 from the drawing
+band_y1 = 71.6;   // was 74.6 from the drawing
+// ⬜ Both are an eyeball ~3 mm off the printed gauge's edges, not a caliper
+//    reading. Good to ~±1 mm. Refine if a part ever needs the last millimetre
+//    of bearing area — nothing does today.
 
 /* [DESIGN — YOKE] the handlebar-side part: clamps the bar, carries the
    pivot and spline that the cowl's arm indexes against */
