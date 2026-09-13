@@ -1,0 +1,31 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  openscad:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install OpenSCAD
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y openscad
+
+      - name: Export every part and verify bounding boxes
+        run: ./tools/build.sh
+
+      # A failed assert() only surfaces as a non-zero exit on a SOLID export
+      # format, which build.sh uses. This step additionally proves the guards
+      # are live rather than decorative: break one on purpose, expect failure.
+      - name: Prove the design assertions actually fire
+        run: |
+          set +e
+          openscad -o /dev/null --export-format=asciistl \
+            -D 'm5_len=16' src/gen4-display-mount.scad 2>&1 | grep -q "BOLT BOTTOMS OUT"
+          test $? -eq 0 || { echo "assertion did not fire — guards are not working"; exit 1; }
+          echo "assertion guards confirmed live"

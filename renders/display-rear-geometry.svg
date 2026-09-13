@@ -1,0 +1,77 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-40 -30 240 164" width="900" font-family="DejaVu Sans, Helvetica, Arial, sans-serif">
+  <style>
+    .ink   { stroke:#c9d1d9; fill:none }
+    .faint { stroke:#c9d1d9; opacity:.35; fill:none }
+    .t     { fill:#c9d1d9; font-size:3.6px }
+    .tdim  { fill:#58a6ff; font-size:5px; font-weight:700 }
+    .thole { fill:#e8833a; font-size:5px; font-weight:700 }
+    .dimb  { stroke:#58a6ff; stroke-width:.4; fill:none }
+    .dimo  { stroke:#e8833a; stroke-width:.4; fill:none }
+    .hole  { fill:#e8833a }
+    .boot  { stroke:#d0442f; fill:#d0442f; fill-opacity:.14 }
+    @media (prefers-color-scheme: light) {
+      .ink, .faint { stroke:#24292f } .t { fill:#24292f }
+    }
+  </style>
+
+  <rect x="0" y="0" width="159.99" height="93.98" rx="9" class="ink" stroke-width="0.7"/>
+
+  <!-- flat bearing band -->
+  <rect x="0" y="20" width="159.99" height="54.6" fill="#58a6ff" opacity=".08"/>
+  <line x1="0" y1="20" x2="159.99" y2="20" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
+  <line x1="0" y1="74.6" x2="159.99" y2="74.6" stroke="#58a6ff" stroke-width=".45" stroke-dasharray="2.5 2"/>
+  <text x="5" y="24.4" fill="#58a6ff" font-size="3.4">flat bearing band — Y 20.0 … 74.6. Outside it the shell chamfers away.</text>
+
+  <!-- cable boot -->
+  <circle cx="80" cy="40.9" r="10.85" class="boot" stroke-width="0.7"/>
+  <circle cx="80" cy="40.9" r="6.5" stroke="#d0442f" fill="none" stroke-width="0.7"/>
+  <text x="80" y="41.9" text-anchor="middle" fill="#d0442f" font-size="3.6" font-weight="700">Ø21.7 / Ø13.0</text>
+  <text x="80" y="46.6" text-anchor="middle" fill="#d0442f" font-size="3">cable boot, 22.3 proud</text>
+
+  <!-- case screws -->
+  <g fill="#c9d1d9" opacity=".22">
+    <circle cx="10.8" cy="11" r="4.2"/><circle cx="80.1" cy="9.9" r="4.2"/><circle cx="149.5" cy="11" r="4.2"/>
+    <circle cx="33.1" cy="84.2" r="4.2"/><circle cx="127.3" cy="84.2" r="4.2"/>
+  </g>
+
+  <!-- mic -->
+  <circle cx="80.2" cy="76" r="1.3" fill="#d0442f"/>
+  <line x1="80.2" y1="76" x2="116" y2="88" stroke="#d0442f" stroke-width=".3"/>
+  <text x="117" y="89.4" fill="#d0442f" font-size="3.2">microphone</text>
+
+  <!-- the three M5 -->
+  <g class="hole">
+    <circle cx="39.5" cy="40.89" r="2.5"/><circle cx="120.5" cy="40.89" r="2.5"/><circle cx="80" cy="63.28" r="2.5"/>
+  </g>
+  <g stroke="#e8833a" stroke-width=".4" stroke-dasharray="1.5 1.5" fill="none">
+    <path d="M39.5 40.89 L120.5 40.89 L80 63.28 Z"/>
+  </g>
+
+  <!-- overall dims -->
+  <g class="dimb">
+    <line x1="0" y1="-11" x2="159.99" y2="-11"/><line x1="0" y1="-13.5" x2="0" y2="-8.5"/><line x1="159.99" y1="-13.5" x2="159.99" y2="-8.5"/>
+    <line x1="173" y1="0" x2="173" y2="93.98"/><line x1="170.5" y1="0" x2="175.5" y2="0"/><line x1="170.5" y1="93.98" x2="175.5" y2="93.98"/>
+  </g>
+  <text x="80" y="-13.5" text-anchor="middle" class="tdim">159.99</text>
+  <text x="179" y="48.5" class="tdim">93.98</text>
+
+  <!-- hole dims -->
+  <g class="dimo">
+    <line x1="39.5" y1="-2.5" x2="120.5" y2="-2.5"/><line x1="39.5" y1="-5" x2="39.5" y2="0"/><line x1="120.5" y1="-5" x2="120.5" y2="0"/>
+    <line x1="-10" y1="40.89" x2="-10" y2="63.28"/><line x1="-12.5" y1="40.89" x2="-7.5" y2="40.89"/><line x1="-12.5" y1="63.28" x2="-7.5" y2="63.28"/>
+    <line x1="-24" y1="0" x2="-24" y2="40.89"/><line x1="-26.5" y1="0" x2="-21.5" y2="0"/><line x1="-26.5" y1="40.89" x2="-21.5" y2="40.89"/>
+  </g>
+  <text x="80" y="-4.2" text-anchor="middle" class="thole">81.0</text>
+  <text x="-11.5" y="53.6" text-anchor="end" class="thole">22.39</text>
+  <text x="-25.5" y="21.5" text-anchor="end" class="thole">40.9</text>
+  <text x="39.5" y="35.2" text-anchor="middle" fill="#e8833a" font-size="3.4">X 39.50</text>
+  <text x="120.5" y="35.2" text-anchor="middle" fill="#e8833a" font-size="3.4">X 120.50</text>
+  <text x="80" y="70.6" text-anchor="middle" fill="#e8833a" font-size="3.4">X 80.00 · Y 63.28</text>
+  <text x="97" y="60" fill="#e8833a" font-size="3.2">3 × M5, 5 mm deep</text>
+
+  <!-- centreline -->
+  <line x1="80" y1="-6" x2="80" y2="100" class="faint" stroke-width=".3" stroke-dasharray="4 1.5 1 1.5"/>
+  <text x="82" y="103" class="t">centreline — the whole rear face is mirror-symmetric about it</text>
+  <text x="0" y="112" class="t">Datum: looking at the BACK, display upright. X from the left edge, Y down from the top. The lone hole is BELOW the pair.</text>
+  <text x="0" y="118" class="t">All dimensions mm. See docs/display-geometry.md for provenance and tolerances.</text>
+</svg>

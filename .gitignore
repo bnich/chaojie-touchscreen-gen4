@@ -1,0 +1,14 @@
+# OpenSCAD / build leftovers
+*.csg
+*.ast
+*.term
+*.deps
+*~
+
+# throwaway probe & test exports
+/tmp-*
+/scratch/
+
+# OS noise
+.DS_Store
+Thumbs.db
