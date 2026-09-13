@@ -50,9 +50,8 @@ third 22.39 mm below the centre of that pair.
 
 ## Start here: print the fit gauge
 
-Everything in this design hangs off a three-hole pattern that was measured off the factory manual's
-dimensioned drawing and cross-checked four ways. It is almost certainly right. **Prove it on your own
-unit anyway**, for the cost of a short print:
+Everything in this design hangs off the three-hole pattern. **Prove it on your own unit** before
+printing anything larger:
 
 ```bash
 # pre-built, or rebuild it yourself:
@@ -94,8 +93,8 @@ and name the constraint you broke, rather than quietly producing a part that doe
 
 | | |
 |---|---|
-| **[docs/display-geometry.md](docs/display-geometry.md)** | Every measurement of the display's back, how it was derived, and the three things that catch people out. **Read this if you are designing your own bracket rather than printing ours** — it is the genuinely reusable part of this repo |
-| **[docs/design-notes.md](docs/design-notes.md)** | Why it is shaped like this. Two constraints are forced by the display and look arbitrary until explained |
+| **[docs/display-geometry.md](docs/display-geometry.md)** | Every measurement of the display's back, and the three things that catch people out. **Read this if you are designing your own bracket rather than printing ours** |
+| **[docs/design-notes.md](docs/design-notes.md)** | The design constraints, and what each one protects |
 | **[docs/printing.md](docs/printing.md)** | Material, per-part orientation, settings, print order |
 | **[docs/assembly.md](docs/assembly.md)** | Hardware list, order of assembly, the 5 mm thread warning, setting the tilt |
 
@@ -137,7 +136,7 @@ Three things in this model are guarded by assertions and should not be "simplifi
    so it can never be fitted.
 3. **Bolt length minus part thickness must land in 3–4 mm.** The thread is 5 mm deep.
 
-Each of these was found the hard way. [docs/design-notes.md](docs/design-notes.md) explains all three.
+[docs/design-notes.md](docs/design-notes.md) explains all three.
 
 ---
 

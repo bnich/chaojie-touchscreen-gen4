@@ -1,4 +1,4 @@
-# Design notes — why it is shaped like this
+# Design constraints
 
 Read this before changing the model. Several things that look like arbitrary choices are forced by
 the display, and "simplifying" them produces a part that renders fine and fails on the bike.
@@ -22,13 +22,13 @@ lone bolt — rather than a plate.
 
 ### 2. The pivot sits below the housing
 
-Not obvious, and it cost a design iteration to find. The natural place for a tilt pivot is just below
-the cable boot, around Y 72. **It does not work.** A Ø40 toothed face there spans Y 52 … 92, which
-puts **the lone M5's head underneath the toothed face** — the bolt could never be fitted or removed.
-The head is Ø8.5 and reaches Y 68.0, so any toothed face has to start below that.
+The natural place for a tilt pivot is just below the cable boot, around Y 72. **It does not work.** A
+Ø40 toothed face there spans Y 52 … 92, which puts **the lone M5's head underneath the toothed face**
+— the bolt could never be fitted or removed. The head is Ø8.5 and reaches Y 68.0, so any toothed face
+must start below that.
 
-Hence the pivot at **(80, 100)**, 6 mm below the display's bottom edge, clearing the bolt head by
-12 mm. The yoke's lower arm passes over the display's bottom chamfer without touching it.
+The pivot is therefore at **(80, 100)**, 6 mm below the display's bottom edge, clearing the bolt head
+by 12 mm. The yoke's lower arm passes over the display's bottom chamfer without touching it.
 
 The cost is that the display's centre of mass sits **53 mm** above the pivot. On a ~0.4 kg display
 that is ~0.21 N·m static — the spline is enormously oversized for it, which is the point.
@@ -100,10 +100,9 @@ Applied without exception:
 
 ## Things deliberately not done
 
-**No quick-release.** A 5" CarPlay screen on a parked vehicle is a theft target, and a lift-off mount
-is the obvious answer. It was designed and rejected: **the loom is moulded into the display**, with no
-connector at the screen end, so a quick-release hands you a screen still tethered to the bike. It only
-becomes worth building if you put a connector in the loom yourself.
+**No quick-release.** **The loom is moulded into the display**, with no connector at the screen end,
+so a lift-off mount would hand you a screen still tethered to the bike. It only becomes worth building
+if you put a connector in the loom yourself.
 
 **No microphone port.** The cowl covers the mic hole at (80.2, 76.0) and it stays covered, keeping the
 visible face unbroken. The cost is that CarPlay call audio into the display's own mic is gone. If you

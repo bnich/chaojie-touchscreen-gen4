@@ -10,28 +10,18 @@ bracket rather than printing ours, this page is the useful part of the repositor
 
 ---
 
-## 1. How the drawing was read
+## 1. How reliable these figures are
 
-The manual's §III is a dimensioned three-view CAD drawing. Rendered at 600 dpi it proves to be
-**true to scale**: its own printed 159.99 and 93.98 give **5.6754** and **5.6608** px/mm, agreeing to
-**0.26 %**. That makes it legitimate to measure the figures the drawing does *not* print.
+**Confirmed on a physical unit:** the hole pattern (a printed gauge bolted to a display), the thread
+size and depth, the up/down orientation, that the Ø13 stub is the cable bundle, and the flat bearing
+band.
 
-Least-squares circle fits on the three mounting holes then land on every printed callout:
+**Taken from the manual's §III dimensioned drawing:** everything else — the Y of the upper hole row,
+the boot and collar diameters, the microphone position, the case-screw positions.
 
-| Derived | Printed on the drawing | Difference |
-|---|---|---|
-| Hole Ø **5.17** | Ø5.0 | 0.17 mm (line width) |
-| Upper pair span **81.30** | 81 | 0.30 mm |
-| Drop to the lone hole **22.50** | 22.39 | 0.11 mm |
-| Upper holes level to **0.00** | (implied) | — |
-
-Four independent agreements. Where a figure below is drawing-derived rather than printed, it is
-marked.
-
-**Confirmed on a physical unit:** the thread size and depth, the up/down orientation, that the Ø13
-stub is the cable bundle, **the whole hole pattern** (a printed gauge bolted on), and **the flat
-bearing band** — which the drawing got wrong by 3 mm at each end (§4.2). The remaining linear
-dimensions are still drawing-derived.
+The drawing is true to scale: its own printed 159.99 and 93.98 give 5.6754 and 5.6608 px/mm at
+600 dpi, agreeing to 0.26 %, and figures measured off it match every printed callout to within a line
+width. Treat the drawing-derived figures as good to a few tenths, and the confirmed ones as exact.
 
 ---
 
@@ -57,16 +47,10 @@ be got wrong.** Only the up/down orientation matters, and the lone hole is **bel
 | — upper right | **(120.50, 40.9)** | the pair is **81.0 apart and dead level** |
 | — lone hole | **(80.00, 63.28)** | **on the centreline**, 22.39 below the pair |
 | — triangle sides | slant sides **46.46** each | isosceles |
-| Flat bearing band | **Y 23.0 … 71.6** | ⭐ **measured on hardware** — 48.6 mm strip; outside it the shell chamfers away. See §4.2 |
+| Flat bearing band | **Y 23.0 … 71.6** | 48.6 mm strip; outside it the shell chamfers away. See §4.2 |
 | Cable boot | **Ø13.0 × 22.3 proud**, in a **Ø21.7** collar, at **(80.0, 40.9)** | total depth over it **47.8** |
 | Microphone | **(80.2, 76.0)** | labelled 送话器孔 on the drawing |
 | Case screws | (10.8, 11.0) · (80.1, 9.9) · (149.5, 11.0) · (33.1, 84.2) · (127.3, 84.2) | ~Ø8.5 pockets |
-
-⭐ **The hole pattern is confirmed on hardware** — a printed gauge carrying all three holes went onto a
-display, all three M5 × 12 bolts pulled it tight, and it sat flat.
-
-Still drawing-derived rather than measured: the Y of the upper hole row (40.9), the boot and collar
-diameters, the microphone position and the case-screw positions.
 
 ---
 
@@ -91,14 +75,11 @@ Outside that 48.6 mm strip the shell chamfers away. A bracket that touches beyon
 two lines instead of sitting on a face, and it will work the bolts loose. All three holes sit inside
 the band — the lone one with 8.3 mm to spare.
 
-⭐ **This figure was corrected by printing, and the correction is instructive.** Derived from the
-manual's side elevation the band reads as **20.0 … 74.6**. A fit gauge cut to exactly that overhung
-by ~3 mm at each end, hanging over the chamfer rather than touching. **An elevation shows where a
-surface begins to chamfer, and that is a soft transition — the genuinely flat area stops about 3 mm
-inboard of that line.** A bearing surface taken off a drawing will always be the optimistic figure.
-Worth knowing if you are deriving your own from the manual.
+⚠️ **If you derive this yourself from the manual, you will get 20.0 … 74.6 and it is ~3 mm optimistic
+at each end.** The side elevation shows where the surface *begins* to chamfer; the genuinely flat area
+stops inboard of that line. Use the measured figures above.
 
-⬜ The 3 mm is an eyeball off the gauge's edges, not a caliper reading; good to ~±1 mm.
+⬜ Measured off a fitted gauge by eye, good to ~±1 mm.
 
 ### 4.3 The cable boot is **inside** the bolt triangle
 
