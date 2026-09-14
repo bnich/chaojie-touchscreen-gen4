@@ -14,6 +14,17 @@ integrated sun brow — because on a moped the back of this display faces the wo
 
 ---
 
+## ⛔ Do not print the yoke or arm yet
+
+**The tilt joint does not tilt.** The spline's axis is the display's own normal while the handlebar
+runs perpendicular to it, so the joint rolls the screen in its own plane instead of pitching it. The
+mount's headline adjustment is on the wrong axis. Everything else — the hole pattern, the tapered
+clamp bore, the spline's own meshing, mesh integrity — is verified and sound; the joint's
+*orientation* is not. Fixing it means re-deriving the pivot placement, not changing a number.
+Details in [docs/design-notes.md](docs/design-notes.md).
+
+**The fit gauge is unaffected and still worth printing.**
+
 ## 🚧 Status
 
 **Work in progress — not yet printable end to end.** Built and verified so far:
@@ -25,13 +36,19 @@ integrated sun brow — because on a moped the back of this display faces the wo
 | **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl) |
 | **Arm + clamp cap** | ✅ done — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`); male spline proven against the yoke's female with `tools/check_fit.py` |
 | **Cowl + sun brow** | ✅ done — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). Clears the yoke, the arm and the display itself (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export); ⬜ **the 19mm brow projection is unproven — print `brow_test` and hold it against the screen on the bike before trusting it** |
-| Assembly renders | ⬜ — arrive with the parts |
+| **Assembly renders + print plate** | ✅ done — [`renders/`](renders). Every part positioned as it actually assembles (display and handlebar shown as stand-ins, not printed), plus the 4 printable parts laid out flat in their print orientation. Clearance re-proven with `tools/check_fit.py` on the positioned exports |
 
 **The fit gauge is printable today**, and it is the right thing to print first regardless (see below).
 Watch the repo or check [CHANGELOG.md](CHANGELOG.md) for the rest.
 
-> The photorealistic mocks of the finished mount, and of the whole thing assembled on a display, go
-> here as soon as the parts they depict actually exist. No renders of vapourware.
+<p align="center">
+  <img src="renders/gen4-assembly-iso.png" width="43%" alt="Isometric render of the full assembly: display, yoke, cowl, arm, clamp cap, handlebar stub and centre-bracket stub, each a distinct colour">
+  <img src="renders/gen4-plate.png" width="43%" alt="The four printable parts -- yoke, arm, cap, cowl -- laid flat on one print plate in their print orientation">
+</p>
+
+> These are plain OpenSCAD preview renders (`--viewall --autocenter`, no `--render`) — flat-coloured
+> CAD shots, not photorealistic mocks. `tools/render-gen4.sh` rebuilds every STL and every PNG,
+> including the assembly's iso/side/front views, from the current model.
 
 ---
 
@@ -113,7 +130,8 @@ src/      gen4-display-mount.scad   — the whole model; every part, one file
 stl/      pre-built exports
 renders/  drawings and preview images
 docs/     the four documents above
-tools/    build.sh (export + verify everything) · check_stl.py
+tools/    build.sh (export + verify single parts) · render-gen4.sh (STL + PNG
+          for every part, the print plate and the assembly) · check_stl.py
 ```
 
 ## Building from source
@@ -130,8 +148,17 @@ Exports every part and checks each bounding box. Individual parts:
 openscad -o out.stl -D 'part="yoke"' src/gen4-display-mount.scad
 ```
 
-Valid names: `gauge`, `spline_test`, `yoke`, `arm`, `cap`, `cowl`, `brow_test`, and — as it
-lands — `plate`. An unrecognised name fails loudly on purpose.
+Valid names: `gauge`, `spline_test`, `yoke`, `arm`, `cap`, `cowl`, `brow_test`, `plate` (the 4
+printable parts laid out on one plate) and `assembly` (every part positioned as it actually
+assembles, plus stand-ins for the display, the handlebar and the bracket it clamps to — not
+fabricated, PNG only). An unrecognised name fails loudly on purpose.
+
+```bash
+./tools/render-gen4.sh
+```
+
+Rebuilds every single-part STL, the plate STL, and every PNG (single parts, the plate, and the
+assembly's iso/side/front views) in one command.
 
 ---
 

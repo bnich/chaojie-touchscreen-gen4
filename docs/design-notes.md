@@ -1,5 +1,33 @@
 # Design constraints
 
+> # ⛔ KNOWN DESIGN DEFECT — the tilt joint does not tilt
+>
+> **Found 2026-09-14, during assembly rendering. Not yet fixed. Read this before printing the yoke
+> or the arm.**
+>
+> The face spline's axis is the **display's own normal**. The handlebar runs across the bike,
+> perpendicular to it. So rotating the joint **rolls the screen in its own plane** — it does not
+> pitch it up or down. For a tilt joint the spline axis has to be **parallel to the bar**, so the
+> screen swings about the same line the bar runs along.
+>
+> The consequence is that the adjustment this mount advertises is the wrong axis, and the display's
+> attitude relative to the rider is set only by how far the clamp is rotated on the bar.
+>
+> **How it happened, because it is instructive:** the pivot was placed on the yoke's *rear face* to
+> clear the lone M5's head (DM-6). A boss on the rear face necessarily has its axis along the
+> normal. The constraint that drove the position was real and correctly derived; nobody asked what
+> *direction* the resulting axis pointed.
+>
+> **Why nothing caught it.** The spline's own meshing was proven, the parts are watertight and
+> solid, every clearance pair reports CLEAR, and 14 assertions fire correctly. All of that verifies
+> that the joint *works*. None of it asks whether the joint does the *job*. It took looking at an
+> assembly render.
+>
+> **The fix is not a parameter change.** The spline boss has to face sideways, which re-opens DM-6's
+> head-clearance reasoning from scratch and changes both the yoke's lower arm and the arm's geometry.
+> That is an owner decision, not a tweak.
+
+
 Read this before changing the model. Several things that look like arbitrary choices are forced by
 the display, and "simplifying" them produces a part that renders fine and fails on the bike.
 

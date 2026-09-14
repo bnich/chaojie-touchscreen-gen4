@@ -115,6 +115,16 @@ spline_id  = 12;                // M6 clearance + boss
 spline_n   = 48;                // 48 teeth = 7.5 deg steps
 spline_h   = 1.6;               // tooth height
 teeth      = true;              // false -> solid fixed-angle joint, same file
+base_female = 3;                 // the yoke's own female pedestal thickness
+                                // (docs/spline-verification.md §6: "base=3
+                                // is the number to build against, not
+                                // yoke_t" -- the spline's base is decoupled
+                                // from the bearing plate's own thickness on
+                                // purpose). Named so yoke()'s own
+                                // face_spline() call and Task 6's assembly
+                                // seating transform can never drift apart
+                                // by one being a literal and the other a
+                                // separately-typed copy of the same fact.
 
 /* [DESIGN — COWL] the rear shroud that covers the display's edges, boot and
    fasteners, and carries the brow over the glass */
@@ -1170,7 +1180,7 @@ module yoke() {
       //    frustum/disc join just above (also verified by the same
       //    Volumes:3 split before this line existed).
       translate(concat(p(pivot_c), [yoke_t + yoke_standoff - eps]))
-        face_spline(male = false, base = 3);
+        face_spline(male = false, base = base_female);
     }
 
     hole_pattern(yoke_t);
@@ -1900,8 +1910,211 @@ module cowl() {
    simpler and just as fast at this size. */
 module brow_test() { cowl_brow_riser_outer(); cowl_brow_outer(); }
 
-// Still to come:
-//   module plate() — flat test plate carrying just the hole pattern
+/* ---- shared geometry: assembly stand-ins ---------------------------
+   Not printed -- context only, so assembly() reads as an installed part
+   rather than pieces floating in space. */
+
+// The display itself: disp_w x disp_h x disp_d, corner radius
+// disp_corner_r (docs/display-geometry.md), with the Ø(boot_d) cable boot
+// standing boot_proud off its back -- the two numbers Task 6 was asked to
+// show. Rear face at z=0, the SAME frame yoke()/cowl() already build in via
+// p(); the glass sits at z=-disp_d, the boot stands into +z, the same
+// direction the cowl and yoke's own riser reach.
+module display_stub() {
+  translate([0, 0, -disp_d])
+    linear_extrude(disp_d)
+      offset(r = disp_corner_r) offset(delta = -disp_corner_r)
+        square([disp_w, disp_h], center = true);
+  translate([p(boot_c)[0], p(boot_c)[1], 0])
+    cylinder(d = boot_d, h = boot_proud);
+}
+
+// The handlebar: Ø = bar_d0 - bar_taper*x over x = 0..bar_run
+// (docs/bike-fitment.md's own table), x measured from the bracket's own
+// right face -- which is exactly arm-local Y=0, the same reference
+// bar_bore() already builds against (its own cylinder runs Y=clamp_x0 to
+// Y=clamp_x0+clamp_w using the identical bore_at(x), x=that same Y). Drawn
+// bar_stub_over past bar_run purely so the stand-in does not read as if
+// the bar stops dead at the clamp -- that extra length carries no fact of
+// its own, unlike everything else in this module.
+bar_stub_over = 70;   // presentation only: long enough that the
+                      // stand-in reads as a handlebar rather than a stump.
+                      // Has no effect on any printed part.
+module bar_stub() {
+  rotate([-90, 0, 0])
+    cylinder(d1 = bar_d0,
+              d2 = bar_d0 - bar_taper * (bar_run + bar_stub_over),
+              h  = bar_run + bar_stub_over);
+}
+
+// The 45 mm centre bracket the clamp butts against (docs/bike-fitment.md).
+// Width is DERIVED, not retyped: arm_crank cranks the pivot back from the
+// clamp's own midpoint (arm-local Y=clamp_x0+clamp_w/2) past the bracket's
+// own right face (Y=0) to the true bike centreline -- so that centreline
+// sits bracket_half behind Y=0, and a bracket centred on it, reaching back
+// out to its own right face, is 2*bracket_half wide.
+bracket_half = arm_crank - clamp_x0 - clamp_w/2;
+bracket_w    = 2 * bracket_half;
+assert(abs(bracket_w - 45) < 0.01,
+  str("BRACKET WIDTH DRIFTED FROM docs/bike-fitment.md's STATED 45mm: got ",
+      bracket_w, "mm from arm_crank/clamp_x0/clamp_w -- the doc and the ",
+      "model have gone out of sync."));
+module bracket_stub() {
+  translate([-25, -bracket_w, -25])
+    cube([50, bracket_w, 50]);
+}
+
+// Seats the arm assembly's male spline against the yoke's female spline.
+// The rotate([180,0,0]) at its core is tools/build.sh's own
+// "cowl clearance vs yoke/arm/display" block's exact transform, reused
+// verbatim (Task 6's own instruction), not re-derived: a 180 deg turn
+// about the arm's own local X axis mirrors the arm's Y (bar axis) and Z
+// (its own "up off the bore" axis) at once, landing the male spline's own
+// flat back (arm Z=arm_len) `base_female+base_male+spline_h` behind the
+// yoke's female flat back (shared-frame Z=yoke_t+yoke_standoff) --
+// face_spline()'s own ORIENTATION seating formula
+// (docs/spline-verification.md §4/§6). This ALONE satisfies the one hard
+// requirement a correct seating has (arm-local Z -> shared -Z,
+// marker-rod-verified) -- but it is not the only rotation that does: it
+// also happens to send arm-local Y (the bar's own axis) to shared Y, which
+// reads as the handlebar running the same direction as the DISPLAY's own
+// up/down axis instead of its left/right one. arm_seat() below adds
+// exactly the remaining freedom (a further turn about the now-shared Z
+// axis, the only freedom a correct seating has left) to fix that, without
+// touching this hard requirement. Everything built in the arm's local
+// frame -- arm(), cap(), bar_stub(), bracket_stub() -- passes through
+// arm_seat() to land in the shared display-rear-face frame assembly()
+// otherwise builds in directly.
+// ⚠ CORRECTED 2026-09-14 (coordinator review, caught by looking at a
+// render -- see the task report). The original version below (theta always
+// 0) mismeshed nothing -- the spline itself was, and remains, correctly
+// seated (rotate([180,0,0]) alone already satisfies the ONE hard
+// requirement, arm-local Z -> shared -Z; ground-truth-verified with marker
+// rods, not just algebra: a 10mm rod on arm-local +Z lands running along
+// shared -Z). But rotate([180,0,0]) alone is only ONE of 48 equally valid
+// "clock positions" the spline allows (any multiple of 360/spline_n = 7.5
+// deg about the now-shared Z axis re-meshes exactly, since the teeth's
+// relative phase comes from face_spline()'s own `male` parameter, not from
+// this outer rotation) -- and theta=0 happens to be a bad one to render:
+// it puts the bar's own axis (arm-local Y, marker-rod-verified to run
+// along shared -Y under rotate([180,0,0]) alone) parallel to the DISPLAY's
+// own up/down axis instead of its left/right one, so the assembly render
+// showed the handlebar running vertically. theta=90 (=12 steps, still an
+// exact multiple of 7.5) turns that same already-correct seating to put
+// the bar along shared X instead, matching the display's own "X =
+// left/right" convention.
+//   theta CANNOT, at any value, bring arm_len ("pivot centre above the BAR
+// CENTRELINE", docs/bike-fitment.md -- an arm-local Z quantity) onto
+// shared Y instead of shared Z: a rotation about the (already Z-aligned)
+// spline axis only ever rotates the OTHER two axes within the plane
+// perpendicular to it, by the closed form of SO(3)'s stabiliser of a fixed
+// axis -- every valid seating rotation is Rz(theta) composed with this
+// same R0, for SOME theta, and none of them moves what R0 already sends to
+// Z. So arm_len necessarily lands along shared Z in this render, at every
+// mechanically valid theta -- see the task report for what that implies
+// (and does not imply) about the pivot's own placement, which is Task 2/3
+// design, not this module's to silently re-decide.
+module arm_seat() {
+  theta = 90;   // see the block comment above -- exact multiple of
+               // 360/spline_n, so this re-meshes the spline exactly, not
+               // approximately.
+
+  seat_z = yoke_t + yoke_standoff + base_female + base_male + spline_h + arm_len;
+  // Re-derived for general theta, not just theta=0's old formula copied
+  // over: the male spline's own local position within the arm is
+  // (0, arm_pivot_y, arm_len), NOT the arm's local origin, so the
+  // translate has to cancel out where THAT point lands under
+  // rotate([0,0,theta]) rotate([180,0,0]) -- (0,arm_pivot_y,arm_len) ->
+  // (arm_pivot_y*sin(theta), -arm_pivot_y*cos(theta), -arm_len). At
+  // theta=0 this collapses to (0, -arm_pivot_y, -arm_len), recovering the
+  // original, already-verified translate exactly (p(pivot_c)[1] +
+  // arm_pivot_y) -- checked algebraically here and re-checked against a
+  // real marker-rod + bar_stub() export (task report), not trusted from
+  // the algebra alone.
+  translate([
+    p(pivot_c)[0] - arm_pivot_y * sin(theta),
+    p(pivot_c)[1] + arm_pivot_y * cos(theta),
+    seat_z
+  ])
+    rotate([0, 0, theta])
+      rotate([180, 0, 0])
+        children();
+}
+
+/* ---- PART: assembly -------------------------------------------------
+   Every part positioned as it actually assembles (docs/assembly.md's own
+   order), plus stand-ins for the display, the handlebar and the bracket it
+   clamps to -- distinct colour per part (house rule: same material, a
+   monochrome render is hard to interpret) so the pieces read separately.
+   The display/yoke/cowl already share one frame with no transform between
+   them (docs/design-notes.md); the arm/cap/bar/bracket are seated by
+   arm_seat() above. */
+module assembly() {
+  color("DimGray")      display_stub();
+  color("Gold")         yoke();
+  color("Crimson")      cowl();
+  arm_seat() {
+    color("RoyalBlue")    arm();
+    color("SeaGreen")     cap();
+    color("Silver")       bar_stub();
+    color("SaddleBrown")  bracket_stub();
+  }
+}
+
+/* ---- PART: plate -----------------------------------------------------
+   The 4 assembled, printable parts (not gauge/spline_test/brow_test --
+   those are throwaway bench proofs, already printed and done per
+   docs/printing.md's own print-order list), laid flat in the print
+   orientation docs/printing.md specifies, side by side on one plate.
+     Every transform below is a plain mirror([0,0,1]) of the part's own Z
+   axis, translated first only where the face that must be "down" does not
+   already sit at that part's own Z=0 -- verified against the real exported
+   bboxes (tools/check_stl.py on stl/gen4-{yoke,arm,cap,cowl}.stl,
+   2026-09-14), not guessed:
+     - yoke's bearing face is ALREADY at Z=0 as authored (bbox Z 0..20.5)
+       -- no flip needed, docs/printing.md's own "bearing face on the bed".
+     - cap's split (bore-opening) face is ALSO already at its own Z=0
+       (bbox Z -24..0) -- mirroring alone (no extra translate) lands it on
+       the bed, docs/printing.md's "bore-side down".
+     - arm's spline teeth sit at arm's OWN Z MAXIMUM (bbox Z 0..49.5 =
+       arm_len+base_male+spline_h) -- needs mirror AND a translate by that
+       same maximum to bring the teeth down to the bed, "spline face down".
+     - cowl's visible back cap sits at ITS OWN Z MAXIMUM too (bbox Z
+       -19..30.3 = -brow..cowl_depth) -- same mirror-plus-translate-by-max
+       treatment, by cowl_depth, "visible face down".
+*/
+plate_gap = 15;   // clear air between parts -- generous on purpose. This is
+                  // a layout aid, not a bed-packing optimiser; the margin
+                  // absorbs the parts' own silhouettes not being simple
+                  // rectangles (round corners, the yoke's own Y-truss) and
+                  // a modest future parameter change, rather than a tight
+                  // nest that a small growth could silently overlap.
+
+module plate() {
+  // Measured bboxes (tools/check_stl.py, 2026-09-14) -- for spacing only.
+  yoke_bb_w = 103.0;  yoke_bb_d = 90.1;   yoke_bb_x0 = -51.49; yoke_bb_y0 = -73.01;
+  arm_bb_w  =  70.0;  arm_bb_d  = 61.6;   arm_bb_x0  = -35.00; arm_bb_y0  = -42.50;
+  cap_bb_w  =  70.0;  cap_bb_d  = 18.2;   cap_bb_x0  = -35.00; cap_bb_y0  =   0.90;
+  cowl_bb_w = 161.0;  cowl_bb_d = 107.48; cowl_bb_x0 = -80.50; cowl_bb_y0 = -47.49;
+
+  row1_y = 0;
+  row2_y = cowl_bb_d + plate_gap;
+  col1_x = 0;
+  col2_x = col1_x + yoke_bb_w + plate_gap;
+  col3_x = col2_x + arm_bb_w  + plate_gap;
+
+  // Row 1: cowl alone -- the widest part.
+  translate([col1_x - cowl_bb_x0, row1_y - cowl_bb_y0, 0])
+    translate([0, 0, cowl_depth]) mirror([0, 0, 1]) cowl();
+
+  // Row 2: yoke, arm, cap.
+  translate([col1_x - yoke_bb_x0, row2_y - yoke_bb_y0, 0])
+    yoke();
+  translate([col2_x - arm_bb_x0, row2_y - arm_bb_y0, 0])
+    translate([0, 0, arm_len + base_male + spline_h]) mirror([0, 0, 1]) arm();
+  translate([col3_x - cap_bb_x0, row2_y - cap_bb_y0, 0])
+    mirror([0, 0, 1]) cap();
+}
 
 /* ---- selector ------------------------------------------------ */
 part = "gauge";
@@ -1931,5 +2144,7 @@ else if (part == "arm") arm();
 else if (part == "cap") cap();
 else if (part == "cowl") cowl();
 else if (part == "brow_test") brow_test();
+else if (part == "assembly") assembly();
+else if (part == "plate") plate();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap, cowl, brow_test"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap, cowl, brow_test, assembly, plate"));

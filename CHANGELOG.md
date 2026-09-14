@@ -5,6 +5,25 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
 ## Unreleased
 
 ### Added
+- **Assembly view, print plate, and `tools/render-gen4.sh`.** `assembly()` positions every part as
+  it actually assembles — display, yoke, cowl, arm, cap, handlebar and centre bracket (the last two
+  as stand-ins; not printed), each a distinct `color()`. The arm/cap/bar/bracket are seated with
+  `arm_seat()`, the same transform `tools/build.sh`'s own cowl-clearance check already derived and
+  proved, reused verbatim rather than re-derived (confirmed bit-identical against that check's own
+  positioned export before relying on it). `plate()` lays the 4 printable parts flat in the print
+  orientation `docs/printing.md` specifies (yoke and cap need only a mirror or no transform at all —
+  their "down" face is already at their own Z=0; arm and cowl need a mirror plus a translate by
+  their own Z maximum — verified against each part's real exported bbox, not guessed). One new
+  `assert()`: the handlebar bracket stand-in's width, derived from `arm_crank`/`clamp_x0`/`clamp_w`,
+  must still equal `docs/bike-fitment.md`'s stated 45 mm.
+  Verified: `display`/`yoke`/`cowl` vs the POSITIONED `arm`/`cap` all CLEAR with `tools/check_fit.py`
+  (5 new pairs, plus 3 already covered by `build.sh`'s own check, re-confirmed) — every pair except
+  yoke-vs-arm, whose only real contact is the spline teeth and is proven instead in
+  `docs/spline-verification.md` (a whole-ring boolean there is not trustworthy either engine).
+  `tools/render-gen4.sh` exports every STL and every PNG (7 single parts, the plate, and the
+  assembly's iso/side/front) in one command; every PNG call greps openscad's own output for `ERROR`
+  and fails the run on a match, since PNG export exits 0 on a fired `assert()` or an unrecognised
+  `part` alike — demonstrated against a deliberately bogus part name.
 - **Arm + clamp cap** — the handlebar-side mount. Bore is a tapered cone (`bore_at()`) matching the
   bar's own measured 1:10 taper (`docs/bike-fitment.md`), not a cylinder; split clamp with a
   `pinch_gap` at two M5 ear bosses (heads counterbored into the cap); the arm carries `arm_crank` so
