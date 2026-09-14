@@ -24,7 +24,7 @@ integrated sun brow — because on a moped the back of this display faces the wo
 | Face spline (tilt joint) | ✅ done — meshing proven geometrically |
 | **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl) |
 | **Arm + clamp cap** | ✅ done — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`); male spline proven against the yoke's female with `tools/check_fit.py` |
-| Cowl + sun brow | 🔨 next |
+| **Cowl + sun brow** | ✅ done — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). Clears the yoke, the arm and the display itself (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export); ⬜ **the 19mm brow projection is unproven — print `brow_test` and hold it against the screen on the bike before trusting it** |
 | Assembly renders | ⬜ — arrive with the parts |
 
 **The fit gauge is printable today**, and it is the right thing to print first regardless (see below).
@@ -130,8 +130,8 @@ Exports every part and checks each bounding box. Individual parts:
 openscad -o out.stl -D 'part="yoke"' src/gen4-display-mount.scad
 ```
 
-Valid names: `gauge`, `spline_test`, `yoke`, and — as they land — `arm`, `cap`, `cowl`,
-`brow_test`, `plate`. An unrecognised name fails loudly on purpose.
+Valid names: `gauge`, `spline_test`, `yoke`, `arm`, `cap`, `cowl`, `brow_test`, and — as it
+lands — `plate`. An unrecognised name fails loudly on purpose.
 
 ---
 

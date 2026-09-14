@@ -1478,13 +1478,430 @@ module cap() {
   }
 }
 
-// Still to come, each in its own task, landing here and wired into the
-// selector below:
-//   module cowl()      — rear cowl: brow, reveal, boot clearance, fillets
-//                         (DESIGN — COWL above)
-//   module brow_test() — throwaway print of the cowl's brow alone, to prove
-//                         the 18-20 mm projection before committing the cowl
-//   module plate()     — flat test plate carrying just the hole pattern
+/* ---- DESIGN — COWL: additional geometry (Task 5) -----------------
+   The header block ([DESIGN — COWL] near the top of the file) already
+   carries cowl_wall / brow / reveal / fillet_out / fillet_vis / fillet_in —
+   the numbers the acceptance criteria name directly, and NONE of them are
+   redefined below. Everything here is DERIVED local geometry the cowl and
+   brow_test need that the header doesn't already carry — same placement
+   pattern as yoke_arm_w/arm_pivot_y/etc. above: local constants declared
+   just before the part(s) that use them. */
+
+// How deep the shell reaches behind the display's rear face (model +Z, same
+// sense as boot_proud). Sized on the DEEPEST thing it must clear within its
+// own XY footprint: the Ø13 boot standing boot_proud=22.3mm proud — not the
+// yoke's own riser, which only reaches yoke_t+yoke_standoff=16mm within this
+// footprint (the yoke's own yoke_riser_y0/y1 comments: nothing south of the
+// flat band adds height until well outside this footprint, at the pivot).
+// +8 leaves the boot 8mm of air before the back cap, and clears the riser by
+// ~14mm. Both margins are checked below (CAVITY TOO SHALLOW), and the yoke/
+// arm clearance itself is proven for real against the actual STLs, not just
+// this arithmetic — see the verify block in the report for check_fit.py.
+cowl_depth = boot_proud + 8;
+
+assert(cowl_depth - cowl_wall > boot_proud + 1,
+  str("CAVITY TOO SHALLOW FOR THE BOOT: cowl_depth-cowl_wall (",
+      cowl_depth - cowl_wall, ") leaves < 1mm of air over the Ø", boot_d,
+      " boot standing boot_proud=", boot_proud, "mm proud."));
+// ⚠ LAYERED WITH THE BOOT GUARD ABOVE, same as yoke_root_len's own layered
+// guards elsewhere in this file: at today's values boot_proud+1 (23.3) is
+// always looser than yoke_t+yoke_standoff+2 (18), so shrinking cowl_depth
+// alone always trips the BOOT assert first and this one currently reads as
+// unreachable. It still protects a different, independently derivable fact
+// (the riser fits) and becomes the binding check the moment boot_proud
+// shrinks or yoke_standoff grows — confirmed reachable on its own by
+// overriding boot_proud=5 (moving the boot out of the way) with
+// cowl_depth=15 (thinning only the cavity): BOOT stays clear
+// (15-2.4=12.6 > 5+1=6) and this one fires (12.6 < 8+8+2=18) on its own.
+assert(cowl_depth - cowl_wall > yoke_t + yoke_standoff + 2,
+  str("CAVITY TOO SHALLOW FOR THE YOKE RISER: cowl_depth-cowl_wall (",
+      cowl_depth - cowl_wall, ") leaves < 2mm of air over the riser's own ",
+      yoke_t + yoke_standoff, "mm reach within this footprint."));
+// ⚠ ALSO LAYERED WITH THE BOOT GUARD ABOVE: raising cowl_wall alone shrinks
+// cowl_depth-cowl_wall too, so a plain `cowl_wall=10` trips CAVITY TOO
+// SHALLOW FOR THE BOOT first (confirmed) — this one still fires on its own
+// given a cowl_depth override big enough to clear that guard out of the way
+// (confirmed: boot_proud=1, cowl_depth=100, cowl_wall=9.5 clears BOOT and
+// hits this one).
+assert(disp_corner_r > cowl_wall,
+  str("WALL TOO THICK FOR THE CORNER RADIUS: cowl_wall (", cowl_wall,
+      ") must stay under disp_corner_r (", disp_corner_r, ") or the inner ",
+      "cavity's own corner erosion has no radius left to erode."));
+
+// Bevels ONLY the top (z=h) edge of a linear_extrude(h) of the 2D child —
+// the bottom (z=0) stays FULL SIZE and flat, unlike chamfer_slab() which
+// erodes both ends. Needed for exactly one reason, found by measuring, not
+// guessed: chamfering the main box's FRONT (z=0, open, mating) end at
+// fillet_out=3 erodes the OUTER profile there faster than the INNER
+// cavity's own constant cowl_wall=2.4 erosion — so right at the tip the
+// outer profile becomes a SUBSET of the inner cavity, and outer-minus-inner
+// is EMPTY. Confirmed on the exported STL by slicing at y=0: no material
+// at all from z=0 to ~z=0.7 in the flat side-wall band, wall thickness
+// climbing 0.4 -> 0.9 -> 1.4 -> 1.9 -> 2.3mm from z=1.0 to z=2.9 and only
+// reaching the intended 2.4mm at z=3.0 (=fillet_out). The open front rim
+// must stay full size; only the closed back cap (whose "inner" boundary is
+// the cavity stopping cowl_wall short in Z, not a competing XY erosion)
+// can safely take the same treatment on both ends — same hull()-of-slices
+// technique as chamfer_slab(), just with the first slice at full size
+// instead of eroded.
+module chamfer_slab_top(h, ch) {
+  assert(ch < h,
+    str("CHAMFER TOO DEEP: ch (", ch, ") must be < h (", h, ")."));
+  hull() {
+    linear_extrude(0.01) children(0);
+    translate([0, 0, h - ch]) linear_extrude(0.01) children(0);
+    translate([0, 0, h - 0.01]) linear_extrude(0.01) offset(delta = -ch) children(0);
+  }
+}
+
+// ⚠ THE OUTLINE, ONE PLACE, ONE PARAMETRISED MODULE. inset=0 is the OUTER,
+// visible surface: exactly disp_w+2*reveal x disp_h+2*reveal, corner radius
+// disp_corner_r. inset=cowl_wall is the INNER cavity: the SAME shape,
+// uniformly eroded by cowl_wall — not a second, hand-derived profile, so the
+// wall can never drift from cowl_wall by construction rather than by
+// coincidence (criterion: "Wall is cowl_wall throughout — uniform, no
+// thick-to-thin transitions").
+//   Nesting order matters and was VERIFIED, not assumed, before relying on
+// it: `offset(delta=-inset) offset(r=disp_corner_r) offset(delta=-disp_corner_r)
+// square(...)` on a 160.99x94.98 test case gave EXACTLY R9.000 corners and
+// the full 160.99x94.98 bbox at inset=0, and EXACTLY R6.600 (=9-2.4) corners
+// and a bbox shrunk by exactly 2*2.4 on each axis at inset=2.4 — a true
+// uniform erosion (moves straight edges AND shrinks arc radius by the same
+// amount), not a per-vertex miter (which would have collapsed the rounded
+// corners to sharp points instead of smaller arcs — the wrong shape for a
+// constant-thickness wall).
+module cowl_outline(inset = 0) {
+  offset(delta = -inset)
+    offset(r = disp_corner_r) offset(delta = -disp_corner_r)
+      square([disp_w + 2*reveal, disp_h + 2*reveal], center = true);
+}
+
+// ---- Brow: a RISER (entirely at z>=0, behind the display's own rear
+// face, where it can never collide with the display's own housing) carrying
+// a CANTILEVER that projects `brow` mm forward at z<0, confined in Y to
+// stay clear of the display's own top edge.
+//   NOT a flat slab flush with the box's own top wall projecting straight
+// out over z=0 — that was tried first and MEASURED to collide: checked with
+// check_fit.py against a plain disp_w x disp_h x disp_d display stand-in
+// (the confirmed housing envelope), it reported 14230mm^3 of interference
+// spanning the display's own full z<0 depth. The reason is structural, not
+// a tuning mistake: the display is a solid block from z=0 back to z=-disp_d
+// across its ENTIRE disp_h height, so anything with material at z<0 AND a Y
+// within the display's own Y-range (-disp_h/2..disp_h/2) passes straight
+// through it. A brow rooted at the box's own top edge (Y up to
+// disp_h/2+reveal, well inside the display's own Y-range) can only ever
+// reach over the glass by first tunnelling through the housing.
+//   The fix: keep the ENTIRE z<0 cantilever at Y > disp_h/2 (clear of the
+// display's own footprint), and do all the Y-travel from the box's edge up
+// to that safe band at z>=0 instead, where there is nothing to collide
+// with. Same "riser then bridge" split as the arm's own rising rib
+// elsewhere in this file (see arm()'s own block comment) — there for
+// printability, here for clearance, same shape of fix either way: one
+// bad-geometry diagonal replaced by two axis-aligned stages.
+brow_clear = 3;    // Y clearance the CANTILEVER keeps above the display's
+                   // own CONFIRMED top edge (disp_h/2) — deliberately not
+                   // zero: this repository has no data on the housing's
+                   // edge/bezel profile beyond the overall disp_h envelope
+                   // (display-geometry.md confirms the overall size, not a
+                   // bezel margin), so a real margin is kept rather than
+                   // designing to the very edge of what's confirmed.
+brow_root  = 10;   // Y-depth of the CANTILEVER's own footprint (X = full
+                   // display width) — comfortably over 2*fillet_vis+1, its
+                   // own edge-break never hits the offset() collapse that
+                   // bit yoke_root_len/yoke_arm_w elsewhere in this file.
+brow_y0 = disp_h/2 + brow_clear;   // cantilever's near (root) edge, Y
+brow_y1 = brow_y0 + brow_root;     // cantilever's far edge, Y
+
+riser_y0 = disp_h/2 + reveal - 10;   // riser's own low edge, Y — 10mm into
+                   // the box's own still-full-width flat top (>=
+                   // disp_corner_r=9, same margin reasoning the old
+                   // single-piece brow had), so the union with the box is a
+                   // solid, full-width bond, not a corner graze.
+riser_h  = 8;      // riser depth, Z (0..riser_h) — comfortably more than the
+                   // cantilever's own lap below, so the riser's own far end
+                   // is a real cap past where the cantilever stops, not a
+                   // coincident face.
+cant_lap = 2 * cowl_wall;   // cantilever's own overlap into the riser, past
+                   // z=0 — same "overlap, don't just touch" reasoning as
+                   // ear_web()'s bridge elsewhere in this file. The riser's
+                   // own Y-range fully contains the cantilever's
+                   // (riser_y0 <= brow_y0 and brow_y1 is shared), and
+                   // riser_h > cant_lap, so this overlap sits entirely
+                   // inside the riser's own solid volume — a guaranteed
+                   // bond, not a graze.
+
+assert(cant_lap < riser_h,
+  str("BROW LAP TOO DEEP: cant_lap (", cant_lap, ") must stay under riser_h (",
+      riser_h, ") or the cantilever's own overlap reaches past the riser's ",
+      "own far end, into territory that is not actually solid there."));
+assert(brow_root > 2*fillet_vis + 1,
+  str("BROW ROOT TOO NARROW FOR ITS OWN FILLET: brow_root (", brow_root,
+      ") leaves < 1mm clearance over 2*fillet_vis (", 2*fillet_vis,
+      ") — same offset() collapse as yoke_root_len/yoke_arm_w elsewhere in ",
+      "this file: EMPTY for the whole zone at or under that value, not a ",
+      "smaller radius, and the brow's own root silently vanishes."));
+assert(2*fillet_vis < brow + cant_lap,
+  str("BROW TOO SHORT FOR ITS OWN CHAMFER: brow (", brow, ") + cant_lap (",
+      cant_lap, ") = ", brow + cant_lap, " must exceed 2*fillet_vis (",
+      2*fillet_vis, ") or chamfer_slab's own top/bottom bevels invert into ",
+      "each other. Still true at the low end of the unproven 18-20mm range."));
+
+// The riser: PART OF THE SAME UNIFORM-cowl_wall SHELL as the box and the
+// cantilever, not a solid gusset — its own cavity (below) overlaps BOTH the
+// box's main cavity (at its low, riser_y0 end) AND the cantilever's cavity
+// (at its high, brow_y1 end) in 3D, so all three become ONE continuous void
+// with ONE connected outer boundary.
+//   ⚠ THIS MATTERS, NOT JUST FOR THE WALL CRITERION. A first version made
+// the riser SOLID and stopped the cantilever's own cavity dead at z=0 —
+// that cavity, capped at every side (tip, walls, AND the solid riser),
+// became a fully SEALED internal void with no path to the outside. CGAL
+// reported `Volumes: 3` and a direct check (trimesh split) found 2
+// disconnected watertight shells — the cowl's own outer skin, and a second,
+// separate, negative-volume shell bounding the orphaned cavity. Both
+// pieces individually pass every other check (watertight, 0 boundary, 0
+// non-manifold — a sealed internal bubble is a perfectly valid closed
+// surface on its own), so ONLY the connected-component count catches it.
+// Hollowing the riser too — so every cavity in this part connects to every
+// other — fixes both problems (the wall criterion and the component count)
+// with the same change, matching how the box's own cavity already stays
+// open to the exterior rather than sealed.
+module cowl_brow_riser_outer() {
+  translate([0, (riser_y0 + brow_y1)/2, 0])
+    linear_extrude(riser_h)
+      offset(r = fillet_vis) offset(delta = -fillet_vis)
+        square([disp_w + 2*reveal, brow_y1 - riser_y0], center = true);
+}
+
+module cowl_brow_riser_inner() {
+  translate([0, (riser_y0 + brow_y1)/2, -eps])
+    linear_extrude(riser_h - cowl_wall + eps)
+      offset(delta = -cowl_wall)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          square([disp_w + 2*reveal, brow_y1 - riser_y0], center = true);
+}
+
+// Outer (visible) cantilever surface: R2 (fillet_vis) edge-break at both Z
+// ends — the leading tip (the one that actually matters) and the buried lap
+// end (harmless, embedded in the riser either way).
+module cowl_brow_outer() {
+  translate([0, (brow_y0 + brow_y1)/2, -brow])
+    chamfer_slab(brow + cant_lap, fillet_vis)
+      offset(r = fillet_vis) offset(delta = -fillet_vis)
+        square([disp_w + 2*reveal, brow_root], center = true);
+}
+
+// Inner cavity, uniformly eroded by cowl_wall from the outer — same
+// principle as cowl_outline(), applied to the cantilever's own smaller
+// profile. Stops cowl_wall short of the leading tip (z=-brow) so a solid
+// end-cap remains there (same "cap it like the box's own back" idea as the
+// main box), and runs PAST z=0 into the riser's own cavity (cowl_brow_riser_
+// inner(), above) so the two connect into one air space rather than two
+// separately-sealed pockets — see that module's own comment for why a
+// sealed pocket here is a real defect, not a cosmetic nitpick.
+module cowl_brow_inner() {
+  translate([0, (brow_y0 + brow_y1)/2, -brow + cowl_wall])
+    linear_extrude(brow - cowl_wall + eps)
+      offset(delta = -cowl_wall)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          square([disp_w + 2*reveal, brow_root], center = true);
+}
+
+// ---- Bottom opening: ONE wide notch, the yoke's arm through the middle,
+// the loom beside it — not two notches (criterion). Open to the display's
+// own bottom edge and well beyond (the arm and loom both continue past the
+// cowl's own footprint, down to the pivot and the handlebar).
+open_w  = 50;    // half of this, 25, clears the Ø40 spline puck's own R20 by
+                 // 5mm — checked for real against the exported yoke/arm
+                 // STLs with check_fit.py (see the report), not trusted from
+                 // this arithmetic alone: a hull()-based taper does not
+                 // interpolate its cross-section linearly along its own
+                 // axis, per taper_wp()'s own block comment on exactly this
+                 // failure mode.
+open_y0 = -22;   // upper edge of the opening, model Y. Below this (more
+                 // negative than yoke_riser_y1=-24.41) the yoke's Stage-B
+                 // taper actually widens toward the pivot and needs the
+                 // material gone; above it (Stage A, yoke_riser_y0=-22.29
+                 // down to -24.41) the riser only reaches z=16 — comfortably
+                 // inside cowl_depth — so a plain wall clears it with no
+                 // opening needed. -22 sits north of that boundary by
+                 // 2.41mm (an intentional small margin, not the boundary
+                 // itself) and clear of the M3 boss band below it.
+
+assert(open_w/2 > spline_od/2 + 3,
+  str("OPENING TOO NARROW: open_w/2 (", open_w/2, ") clears the Ø", spline_od,
+      " spline puck by only ", open_w/2 - spline_od/2, "mm — needs >3mm."));
+
+// Rounded on its two upper (visible, re-entrant) corners at fillet_vis —
+// "every other visible edge". The two lower corners run off the model into
+// open air (y=-200, never reached by any real geometry) and have nothing to
+// round; letting the SAME offset() round-trip touch them is harmless and
+// avoids hand-picking which two of four corners get circle primitives.
+module cowl_opening_cut() {
+  translate([0, 0, -1])
+    linear_extrude(cowl_depth + 2)
+      offset(r = fillet_vis) offset(delta = -fillet_vis)
+        polygon([
+          [-open_w/2, open_y0], [ open_w/2, open_y0],
+          [ open_w/2,    -200], [-open_w/2,    -200] ]);
+}
+
+// ---- Top retention hook: a small interference tab, not a structural joint
+// (the two M3s below are that). Reaches hook_engage past the display's own
+// TRUE edge (disp_h/2, doc-Y 0 — a confirmed housing dimension, not a
+// guessed chamfer/step detail this repository doesn't have) so the thin ASA
+// wall can flex over it on installation: tilt the cowl, hook this tab past
+// the display's top edge, then rotate down and drive the M3s (assembly.md:
+// "hook the top lip first, then two M3 up through the bottom rim").
+hook_engage = 1.5;   // modest, deliberately — an anti-lift locator, not the
+                     // retention itself; assembly.md's own two-step order
+                     // (hook, THEN screw) says the hook only has to hold
+                     // until the M3s go in.
+hook_w      = 40;    // centred. Comfortably inside the case-screw pockets at
+                     // doc (33.1,84.2)/(127.3,84.2) — display-geometry.md §3
+                     // — so it can never foul them regardless of their exact
+                     // depth (this file does not model those pockets).
+
+module cowl_hook() {
+  translate([0, disp_h/2 + (reveal - hook_engage)/2, cowl_wall/2])
+    cube([hook_w, hook_engage + reveal, cowl_wall], center = true);
+}
+
+// ---- Two M3s, upward (model +Y) through the bottom rim, into the yoke
+// (assembly.md's hardware table). Reachable from the SAME opening the arm
+// and loom already use — nothing about this fastener is visible or
+// reachable from the front (criterion).
+m3_clear_d  = 3.4;   // M3 free-fit clearance, not "close fit" 3.2 — FDM
+                     // holes print undersized, and this is a part that
+                     // should never need redrilling to assemble.
+m3_lead_d   = m3_clear_d + 1;   // same +1mm lead-in convention as
+                     // hole_pattern()'s own M5 countersinks above.
+m3_boss_d   = 8;     // (8-3.4)/2 = 2.3mm of ASA on every side of the
+                     // clearance hole — comfortably over hole_pattern()'s
+                     // own margin conventions elsewhere in this file.
+m3_boss_len = 14;    // real bearing length for the screw, not just a thin
+                     // washer-plate.
+m3_x   = open_w/2 + m3_boss_d/2 + 2;   // boss centre, X — just outside the
+                     // opening's own flanking wall, with 2mm of solid wall
+                     // between the opening's cut edge and the boss's own
+                     // bore, so the M3 clearance hole never breaks into the
+                     // opening.
+m3_y0  = open_y0 - 2;                  // boss's lower (open, driver-access)
+                     // end — reachable from the same opening the arm and
+                     // loom already use.
+m3_y1  = m3_y0 + m3_boss_len;
+m3_z_overlap = 0.6;  // how far the boss's PLAIN cylinder reaches past the
+                     // back cap's own inner face (z=cowl_depth-cowl_wall) —
+                     // a real bond, not a graze (same "overlap, don't just
+                     // touch" reasoning as ear_web()'s bridge elsewhere in
+                     // this file), kept modest because the root fillet below
+                     // reaches further still and both have to stay clear of
+                     // the visible outer face.
+m3_z_c = cowl_depth - cowl_wall - m3_boss_d/2 + m3_z_overlap;
+m3_z_max = m3_z_c + m3_boss_d/2 + fillet_in;   // ⚠ the boss's TRUE highest
+                     // reach — NOT m3_z_c+m3_boss_d/2. cowl_m3_boss() below
+                     // hulls the plain-diameter run against a WIDER disc
+                     // (d=m3_boss_d+2*fillet_in) right at the cap end, for
+                     // the R1 root fillet — so the root fillet's own radius
+                     // (m3_boss_d/2+fillet_in), not the plain cylinder's, is
+                     // what actually decides how close this gets to the
+                     // visible surface. Missing this the first time round
+                     // let the fillet poke 0.1mm through the back cap
+                     // (found by checking the exported bbox against
+                     // cowl_depth, not by trusting the assert below alone —
+                     // the assert used m3_boss_d/2 only and passed anyway).
+
+assert(m3_x + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
+  str("M3 BOSS TOO FAR OUT: boss edge at x=", m3_x + m3_boss_d/2,
+      " comes within 2mm of the shell's own R", fillet_out, " outer chamfer ",
+      "(starts at x=", disp_w/2 + reveal - fillet_out, ")."));
+assert(m3_z_max < cowl_depth - 0.5,
+  str("M3 BOSS BREAKS THE VISIBLE SURFACE: the root fillet reaches z=",
+      m3_z_max, ", within 0.5mm of the back cap's own outer face at z=",
+      cowl_depth, " — this must include the R1 root fillet's own radius ",
+      "(m3_boss_d/2+fillet_in), not just the plain boss diameter, or a ",
+      "0.1mm bump on the visible surface passes silently (found once)."));
+
+module cowl_m3_boss() {
+  for (sx = [-1, 1])
+    // A short root fillet (fillet_in, R1 — "internal fillets at wall-to-rib
+    // junctions") where the boss meets the back cap: hull() a slightly
+    // larger, shorter disc at the cap end against the plain-diameter run —
+    // same 3-point-hull shape chamfer_slab() itself uses, just built by
+    // hand here because the boss's own axis (Y) isn't chamfer_slab's native
+    // Z, and this fillet is one-sided (only the cap end, not the open end).
+    hull() {
+      translate([sx * m3_x, m3_y0, m3_z_c]) rotate([-90, 0, 0])
+        cylinder(d = m3_boss_d, h = m3_boss_len - fillet_in);
+      translate([sx * m3_x, m3_y1 - eps, m3_z_c]) rotate([-90, 0, 0])
+        cylinder(d = m3_boss_d + 2*fillet_in, h = eps);
+    }
+}
+
+module cowl_m3_cut() {
+  for (sx = [-1, 1]) {
+    translate([sx * m3_x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
+      cylinder(d = m3_clear_d, h = m3_boss_len + 2*eps);
+    translate([sx * m3_x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
+      cylinder(d1 = m3_lead_d, d2 = m3_clear_d, h = 0.5);
+  }
+}
+
+/* ---- PART: cowl --------------------------------------------------
+   The visible surface (design-notes.md: "the back of this display faces
+   forward on a moped ... a surface people see, not a bracket hidden behind
+   a screen"). A uniform cowl_wall shell over the whole rear face, R9
+   (disp_corner_r)-cornered footprint with the deliberate reveal gap, a flat
+   brow over the glass, ONE bottom opening, and no fastener visible or
+   reachable from the front. */
+module cowl() {
+  difference() {
+    union() {
+      // Outer shell: R3 (fillet_out) on the BACK (visible, z=cowl_depth)
+      // edge only — "the cowl's outer perimeter", read as the silhouette
+      // edge you actually see standing in front of the bike. The FRONT
+      // (z=0, mating) rim stays full size/flat — see chamfer_slab_top()'s
+      // own comment for why: chamfering it too erodes the outer profile
+      // there faster than the inner cavity's own erosion, and the wall
+      // vanishes for the first ~0.7mm (found by measuring the exported
+      // part, not guessed). The front rim is mostly hidden by the 0.5mm
+      // reveal anyway, so losing its own edge-break costs nothing visible.
+      chamfer_slab_top(cowl_depth, fillet_out) cowl_outline(0);
+
+      cowl_brow_riser_outer();
+      cowl_brow_outer();
+      cowl_hook();
+      cowl_m3_boss();
+    }
+
+    // Hollow it — the SAME cowl_outline(), just inset by cowl_wall, so the
+    // wall can never drift from cowl_wall by construction. Stops
+    // cowl_wall short of z=cowl_depth so a solid back cap remains; open at
+    // z=0, the mating face around the display.
+    translate([0, 0, -eps])
+      linear_extrude(cowl_depth - cowl_wall + eps) cowl_outline(cowl_wall);
+    cowl_brow_riser_inner();
+    cowl_brow_inner();
+
+    cowl_opening_cut();
+    cowl_m3_cut();
+  }
+}
+
+/* ---- PART: brow_test ----------------------------------------------
+   Throwaway strip carrying the brow (riser + cantilever) — the real
+   cowl_brow_riser_outer()/cowl_brow_outer() geometry, not a hand-
+   approximated stand-in, so what gets held against the screen on the bike
+   is the actual feature (including its real standoff off the display), not
+   a proxy that could drift from it. ⬜ brow=19 is UNPROVEN (18-20mm is the
+   range); print this, hold it against the screen on the bike seated
+   normally, and confirm before cowl() is treated as final. Printed SOLID
+   (no cavity, unlike the real cowl) — it is a bench check held against
+   glass for a minute, not a load-bearing part, and printing it solid is
+   simpler and just as fast at this size. */
+module brow_test() { cowl_brow_riser_outer(); cowl_brow_outer(); }
+
+// Still to come:
+//   module plate() — flat test plate carrying just the hole pattern
 
 /* ---- selector ------------------------------------------------ */
 part = "gauge";
@@ -1512,5 +1929,7 @@ else if (part == "spline_test") spline_test();
 else if (part == "yoke") yoke();
 else if (part == "arm") arm();
 else if (part == "cap") cap();
+else if (part == "cowl") cowl();
+else if (part == "brow_test") brow_test();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap, cowl, brow_test"));
