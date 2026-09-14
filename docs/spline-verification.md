@@ -194,20 +194,40 @@ seated" numbers are comfortably below anything an FDM printer resolves (a
 0.4mm nozzle, 0.2mm layers) — a print will fuse this contact seamlessly rather
 than leave a visible gap or force the two faces apart.
 
-## 6. Seating formula, verified with two DIFFERENT `base` values
+## 6. What the shipped yoke actually calls, and what that means for the arm
 
-`face_spline()`'s doc comment gives the general seating offset as
-`base_male + base_female + spline_h`, explicitly not assuming the two sides
-share a `base`. Verified directly rather than only algebraically: `base_male=3`,
-`base_female=8` (the real value Task 3's yoke will use, `yoke_t`), so
-`seat = 3 + 8 + 1.6 = 12.6`:
+⚠️ **This section previously verified `base_female=8` ("the real value Task 3's
+yoke will use, `yoke_t`") — that never shipped.** The yoke's female half is
+`face_spline(male=false, base=3)`, called from a pedestal built up on the
+arm's own tip stack (`yoke_tip_h`, `yoke_standoff` — see
+`gen4-display-mount.scad`'s own comments), not laid straight onto the 8mm
+bearing plate. The spline's base is decoupled from `yoke_t` on purpose: the
+plate's own thickness is sized for M5 thread engagement (§ DESIGN — YOKE's
+own `yoke_t` comment), the spline pedestal for a compact, printable boss at
+the pivot — nothing requires the two to match, and forcing them to would
+mean an 8mm-tall boss with no structural reason to be that deep. **`base=3`
+is the number to build against, not `yoke_t`.**
+
+Re-verified with the pair that actually exists in this codebase today —
+`base_male=3` (`spline_test`'s own demo instance, the only male call in the
+file so far) and `base_female=3` (the yoke's real value) — using §4's method
+against the shipped module, not transcribed from §5:
 
 ```
-male_top(θ=0)    = 4.6005   (unaffected by the other side's base, as expected)
-female_bottom(θ=0, base=8, seat=12.6) = 4.5872
-overlap = 0.0133 mm
+seat = base_male + base_female + spline_h = 3 + 3 + 1.6 = 7.6
+male_top(θ=0)     [z-range 0.0 .. 4.6005]     = 4.6005
+female_bottom(θ=0) [z-range 4.58722 .. 7.6]   = 4.58722
+overlap = 4.6005 - 4.58722 = 0.01328 mm
 ```
 
-Same small, real, correctly-signed contact as the `base=3/base=3` case (§5's
-θ=0 row, 0.0132mm) — the formula holds when the two sides differ, which is the
-case Tasks 3 and 4 will actually build.
+Small, real, correctly-signed contact — consistent with (and, since this is
+literally the `base=3/base=3` case, numerically matching to a hair of
+rounding) §5's own θ=0 row (0.0132mm).
+
+**What Task 4's arm therefore needs:** its own male base is a free choice —
+the formula holds for any `base_male`, proven independently in the original
+version of this section with `base_male=3, base_female=8` — but whatever
+value the arm picks, it must compute `seat` against the female's REAL base
+(**3**, read from `gen4-display-mount.scad`'s `yoke()`, not assumed to be
+`yoke_t`), and should re-run this section's method against both shipped
+modules once the arm exists, the same way this update did.

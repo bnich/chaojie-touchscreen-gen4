@@ -295,6 +295,76 @@ module chamfer_slab(h, ch) {
   }
 }
 
+// A thin (2*eps in Y) slice of a `w`-wide rectangular footprint centred at
+// x_c, at a given y, spanning z0..z1 — a hull() waypoint.
+//
+// WHY THIS EXISTS, not just how to call it: a single hull() from a flush,
+// flat-footed root straight to a distant, taller tip does not taper
+// cleanly between the two. A convex hull is bounded only by the z-RANGE of
+// its inputs, not by either input's own per-point height, so a supporting
+// plane tangent to a high point on the tip and a different point on the
+// root can sit ABOVE the root's own flat top, directly over the root's own
+// footprint — or, in the other direction, sit BELOW where the root should
+// already have risen, for a long stretch of y beyond it. Both leaks are
+// measured, not theoretical, on this file's own yoke (see yoke_root_y0's
+// and yoke_riser_y0/y1's block comments for the actual numbers). The fix
+// in both directions is the same: never hull() the root or tip directly:
+// hull() them each against a thin, PINNED waypoint like this one instead.
+// A convex hull can never exceed the y-range of ITS OWN inputs, so
+// whichever tilt the taller/farther partner would otherwise leak backward
+// or forward is confined to y <= (or >=) this waypoint's own y — never
+// back into a caller's flat, unaffected territory. Get the waypoint's own
+// y wrong (place it past the boundary it's meant to hold) and the
+// confinement argument stops applying; it is the PINNING, not the shape,
+// that does the work. Any single-hull() taper between a flush, flat-footed
+// root and a distant, taller tip needs this same treatment — Task 4's arm
+// included.
+//
+// Its own corners still round with fillet_vis, the same as every other
+// silhouette in this file: a sharp-cornered box hulled against a smooth
+// (fillet_vis-rounded, or round) neighbour leaves the box's own corners as
+// visible ridges running the length of the taper, since hull() only
+// smooths where BOTH sides are already smooth. Built by rotating a normal
+// linear_extrude() 90 deg — that plane is the (w x z-height) cross-section
+// this waypoint actually presents to its neighbours, not the XY plane
+// chamfer_slab() extrudes from.
+//
+// Generic (x_c, w — not tied to hole_lone or yoke_arm_w) so Task 4's arm
+// can reuse this directly for its own taper instead of re-deriving the
+// same rotate-and-offset recipe.
+//
+// ⚠ SELF-GUARDED, deliberately, the same way chamfer_slab() checks its own
+// `2*ch < h` rather than trusting every caller to remember: this module's
+// own offset(r=fillet_vis) offset(delta=-fillet_vis) hits the identical
+// empty-for-H<=2*fillet_vis collapse as yoke_root_len's and yoke_arm_w's
+// own guards, on EITHER of ITS OWN two dimensions (`w` or `z1-z0`) — and a
+// caller can reach it through values that look unrelated. Confirmed
+// reachable: `m5_len=8` (a length the owner stocks) with `yoke_t=4.0`
+// satisfies the M5 engagement window ([3,4]mm) with no other assert
+// noticing, yet feeds `taper_wp(..., z0=0, z1=yoke_t)` a height of exactly
+// 4.0 — inside the empty zone — for a silent `Volumes: 3` split, three
+// sections and two call sites away from here. Guarding every CALL SITE
+// individually is what has already failed three times in this part's own
+// history (root length, root width, and now this); guarding the shared
+// primitive once closes it for every current and future caller instead.
+module taper_wp(x_c, w, y, z0, z1) {
+  assert(w > 2 * fillet_vis + 1,
+    str("TAPER WAYPOINT TOO NARROW FOR ITS OWN FILLET: w (", w,
+        ") leaves < 1mm clearance over 2*fillet_vis (", 2 * fillet_vis,
+        ") — the offset() round-trip returns EMPTY there, not a smaller ",
+        "radius, and this waypoint silently vanishes."));
+  assert(z1 - z0 > 2 * fillet_vis + 1,
+    str("TAPER WAYPOINT TOO THIN FOR ITS OWN FILLET: z1-z0 (", z1 - z0,
+        ") leaves < 1mm clearance over 2*fillet_vis (", 2 * fillet_vis,
+        ") — same offset() trap, on this waypoint's height instead of its ",
+        "width, and it silently vanishes just the same."));
+  translate([x_c - w/2, y + eps, z0])
+    rotate([90, 0, 0])
+      linear_extrude(2 * eps)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          square([w, z1 - z0]);
+}
+
 /* ---- shared geometry: face_spline ------------------------------
    The toothed tilt joint between the yoke (screen side, Task 3) and the arm
    (handlebar side, Task 4). Both call this directly — it never appears as
@@ -520,6 +590,20 @@ yoke_arm_w    = 26;   // width of the arm's root at hole_lone — a bit over the
                        // yoke_root_len below its centre (a circle, not a
                        // rectangle) — the wider root flares the transition
                        // into the taper instead of starting from that chord.
+                       // ⚠ MUST ALSO clear 2*fillet_vis (asserted below,
+                       // mirroring yoke_root_len's own guard just below): the
+                       // root is `square([yoke_arm_w, yoke_root_len])`, a
+                       // rectangle has TWO dimensions, and the offset(r)/
+                       // offset(delta=-r) collapse hits whichever one is
+                       // smaller — `square([4,6])` and `square([6,4])` both
+                       // come back empty. Fixing this for yoke_root_len alone
+                       // left yoke_arm_w with the identical failure, unguarded
+                       // (confirmed: yoke_arm_w=4 renders clean, exit 0, no
+                       // warning, `Volumes: 3`, bbox still a plausible
+                       // 103x90.1x20.5 — check_stl.py would not have caught
+                       // it either). 26 has huge margin today; the guard is
+                       // for whoever narrows this for weight or print time
+                       // later and has no reason to suspect an offset() trap.
 yoke_root_len =  6;    // how far (+Y, toward the plate) the arm's flush root
                        // reaches from hole_lone's own pad — must stay inside
                        // the flat band (asserted below) so this reinforcement
@@ -537,6 +621,18 @@ yoke_root_len =  6;    // how far (+Y, toward the plate) the arm's flush root
                        // is how this part first exported as two disjoint
                        // bodies (CGAL `Volumes: 3`) even though every
                        // face-overlap in the rest of the arm looked fine.
+                       // ⚠ THE GUARDS BELOW ARE LAYERED, NOT INDEPENDENT.
+                       // Nudging yoke_root_len UP trips SOCKET REACHES THE
+                       // TILTED ZONE before RISER TOO SHORT; nudging it DOWN
+                       // trips SOCKET REACHES before this fillet guard —
+                       // because all three read yoke_root_y0, and that
+                       // assert appears earliest in the file. Consistent with
+                       // the design (each is still a real, independently
+                       // derivable constraint — see each one's own comment),
+                       // but a reader chasing one of these by adjusting
+                       // yoke_root_len should expect to land on whichever
+                       // fires first, not necessarily the one they were
+                       // aiming at.
 yoke_standoff =  8;    // how far the arm's pivot end lifts clear (+Z, away
                        // from the display) of the chamfer beyond the flat
                        // band. Outside band_y0/band_y1 the shell is no
@@ -558,9 +654,22 @@ yoke_standoff =  8;    // how far the arm's pivot end lifts clear (+Z, away
                        // `Volumes: 3` — the exact two-body split this whole
                        // waypoint construction exists to prevent, passing
                        // silently. 6 and 7 already gave `Volumes: 2`, so the
-                       // real threshold is yoke_standoff >= 6; the assert
-                       // below is the guard that comment always should have
-                       // had.
+                       // real threshold for THIS assert is yoke_standoff >=
+                       // 6; the assert below is the guard that comment
+                       // always should have had.
+                       // ⚠ 6 clears this assert but now fails a DIFFERENT,
+                       // independent one: taper_wp()'s own fillet-margin
+                       // guard, on the second riser waypoint's height
+                       // (yoke_standoff-1). At standoff=6 that height is
+                       // exactly 5, inside the same 1mm safety margin
+                       // yoke_root_len's own comment explains (empty only
+                       // for H<=4, but a bare 4.01 is already "a different,
+                       // thinner-than-intended fillet" — this file asks for
+                       // real clearance everywhere, not just clearing the
+                       // exact math boundary). So the PRACTICAL minimum,
+                       // once both guards are satisfied together, is
+                       // yoke_standoff >= 7, not 6 — 8 was already chosen
+                       // with margin over either number.
 yoke_ch       =  1;    // 45 deg edge-break on every slab-like face this part
                        // adds (the plate, the arm's root) — same purpose as
                        // hole_pattern()'s own countersink, carried to this
@@ -570,6 +679,16 @@ yoke_ch       =  1;    // 45 deg edge-break on every slab-like face this part
                        // not minkowski(), which is a CGAL operation and this
                        // file's geometry doesn't get to trust those
                        // (spline-verification.md §3).
+yoke_pad_d    = 22;    // bolt-pad land around each of the PAIRED holes
+                       // (holes[0]/[1]) in yoke_profile()'s hull(). Named so
+                       // yoke_top_y (below) can derive its own "+radius" from
+                       // this instead of restating 22/2=11 as a bare literal
+                       // — two numbers stating the same fact is exactly the
+                       // trap boot_slot()'s own top_y warning exists to
+                       // prevent, reintroduced here by two literals instead
+                       // of one bad argument. hole_lone's own pad stays a
+                       // literal (Ø24, used once, nothing else derives from
+                       // it) rather than being named for symmetry alone.
 
 // Southern (more negative model-Y) edge of the arm's flush root — the one
 // value that pins where the flat, unaffected-by-the-tip territory ends.
@@ -630,6 +749,21 @@ assert(p(hole_lone)[1] - m5_socket_d/2 > yoke_root_y0 + eps,
 // union below) and, from that, the z its LOWEST point sits at — the value
 // yoke_standoff's own header comment promises is guarded. Named so that
 // promise is checkable instead of a dangling forward-reference.
+//
+// Why 6, not 4 or 8: it needs to clear yoke_ch (1) by enough that the
+// frustum lead-in reads as a small chamfer on the puck, not a taper that
+// IS the puck — at 6 the lead-in is 1/6 (~17%) of the total, in the same
+// ballpark as hole_pattern()'s own countersink-to-hole-depth proportion.
+// It also needs to stay small enough that this puck doesn't itself need
+// the yoke_riser_y0/y1 treatment: hulling its own top (the flat disc the
+// spline boss lands on) against its own bottom (the frustum) spans only
+// yoke_tip_h itself, not the tens-of-mm y-run that caused the leaks above,
+// so a plain two-point stack (no waypoint confinement) is still safe here.
+// The real design cost of raising it is direct, not free: yoke_tip_z0's
+// own formula below means yoke_standoff must be >= yoke_tip_h (asserted),
+// so a taller puck only ever demands a taller standoff for no shape
+// benefit — 6 is the smallest value that still satisfies the proportion
+// argument above.
 yoke_tip_h  = 6;
 yoke_tip_z0 = yoke_t + yoke_standoff - yoke_tip_h;
 
@@ -692,25 +826,6 @@ assert(yoke_riser_y1 < yoke_riser_y0 - 2 * eps,
       "thickness is accounted for — the root barely clears the band with ",
       "too little margin left for this riser to fit ahead of it."));
 
-// A thin (2*eps in Y) slice of the arm's own rectangular footprint at a
-// given y, spanning z0..z1 — exists only to pin where one hull() ends and
-// the next begins (see yoke_root_y0 and yoke_riser_y0/y1's block comments).
-// Its own corners still round with fillet_vis, the same as every other
-// silhouette in this part: a sharp-cornered box hulled against a smooth
-// (fillet_vis-rounded, or round spline_od) neighbour leaves the box's own
-// corners as visible ridges running the length of the taper, since hull()
-// only smooths where BOTH sides are already smooth. Built by rotating a
-// normal linear_extrude() 90 deg — that plane is the (arm-width x z-height)
-// cross-section this waypoint actually presents to its neighbours, not the
-// XY plane chamfer_slab() extrudes from.
-module yoke_wp(y, z0, z1) {
-  translate([p(hole_lone)[0] - yoke_arm_w/2, y + eps, z0])
-    rotate([90, 0, 0])
-      linear_extrude(2 * eps)
-        offset(r = fillet_vis) offset(delta = -fillet_vis)
-          square([yoke_arm_w, z1 - z0]);
-}
-
 // Convex hull of the three bolt pads. "Y-truss" (task goal) describes the
 // STRUCTURAL layout — three legs off a shared span — not the outline: this
 // stays a plain hull(), so it is provably convex (chamfer_slab() below
@@ -718,7 +833,7 @@ module yoke_wp(y, z0, z1) {
 // would violate it silently).
 module yoke_profile() {
   hull() {
-    for (h = [holes[0], holes[1]]) translate(p(h)) circle(d = 22);
+    for (h = [holes[0], holes[1]]) translate(p(h)) circle(d = yoke_pad_d);
     translate(p(hole_lone)) circle(d = 24);
   }
 }
@@ -734,12 +849,15 @@ module yoke_band_2d() {
 }
 
 // This part's own top edge along the boot's X-band, for boot_slot()'s
-// top_y contract — NOT band_y0's model-Y top. The two Ø22 pads share a Y
-// centre, so the hull's flat cap between them (well inside the boot's own
-// ±boot_clear_d/2 X-band, which sits nowhere near either pad) tops out at
-// that shared centre plus the pad's own radius — short of the band's own
-// upper limit, which is never actually reached by this profile at all.
-yoke_top_y = p(holes[0])[1] + 11;
+// top_y contract — NOT band_y0's model-Y top. The two yoke_pad_d pads share
+// a Y centre, so the hull's flat cap between them (well inside the boot's
+// own ±boot_clear_d/2 X-band, which sits nowhere near either pad) tops out
+// at that shared centre plus the pad's own radius — short of the band's
+// own upper limit, which is never actually reached by this profile at all.
+// Derived from yoke_pad_d, not a second "11" literal — see yoke_pad_d's
+// own comment for why that duplication is exactly the failure mode
+// boot_slot()'s top_y warning exists to prevent.
+yoke_top_y = p(holes[0])[1] + yoke_pad_d/2;
 
 // Bore height: just enough to clear the arm-tip stack and the spline boss's
 // own base at the pivot's (x,y) — nothing else of this part reaches that far
@@ -767,6 +885,20 @@ assert(yoke_root_len > 2 * fillet_vis + 1,
       ") — the offset() round-trip that fillets it returns EMPTY for the ",
       "whole zone at or under that value, not just a smaller radius, and ",
       "the arm root silently vanishes."));
+
+// The other dimension of the SAME rectangle, and the SAME trap: fixing it
+// for yoke_root_len alone did not generalise to yoke_arm_w, and a
+// rectangle's offset(r)/offset(delta=-r) collapse hits whichever of its two
+// dimensions is smaller. Confirmed the same way: yoke_arm_w=4 with
+// everything else unchanged renders clean (exit 0, no warning), CGAL
+// `Volumes: 3`, bbox still a plausible 103x90.1x20.5 — check_stl.py's bbox
+// check would not catch it either.
+assert(yoke_arm_w > 2 * fillet_vis + 1,
+  str("ARM ROOT TOO NARROW FOR ITS OWN FILLET: yoke_arm_w (", yoke_arm_w,
+      ") leaves < 1mm clearance over 2*fillet_vis (", 2 * fillet_vis,
+      ") — same offset() trap as yoke_root_len above, on the rectangle's ",
+      "other dimension: EMPTY for the whole zone at or under that value, ",
+      "and the arm root silently vanishes."));
 
 // ⚠ NOTE: there is deliberately no separate "arm root off the band" check
 // here. yoke_riser_y0 (below) is DEFINED as yoke_root_y0, and RISER TOO
@@ -821,8 +953,8 @@ module yoke() {
       // root's own bottom) up to yoke_t+yoke_standoff without any of that
       // low-z material ever reaching the danger zone.
       hull() {
-        yoke_wp(yoke_riser_y0, 0, yoke_t);
-        yoke_wp(yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y0, 0, yoke_t);
+        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
       }
 
       // Stage B: riser top -> pivot tip. BOTH inputs already sit at
@@ -832,7 +964,7 @@ module yoke() {
       // it interpolates in between, which is the one guarantee this whole
       // south-of-the-band run (all the way to the tip) actually needs.
       hull() {
-        yoke_wp(yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
 
         translate(concat(p(pivot_c), [yoke_tip_z0])) {
           // Bottom rim broken the same way hole_pattern() breaks a hole's
