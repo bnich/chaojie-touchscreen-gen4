@@ -2,7 +2,7 @@
 //  Chaojie Gen 4 5" display (CJ-V5-04) — BAR MOUNT + REAR COWL
 //
 //  Design notes: docs/design-notes.md
-//  Display geometry: docs/display-geometry.md
+//  Geometry: docs/display-geometry.md
 //    — taken off the factory manual's §III installation drawing, rendered at
 //      600 dpi and calibrated on its own printed dimensions (0.26% agreement).
 //      Thread, depth and orientation confirmed on the unit 2026-09-13.
@@ -19,12 +19,13 @@
 //
 //  PARTS:  gauge | yoke | arm | cap | cowl | brow_test | plate | spline_test
 //  Export: openscad -o out.stl -D 'part="gauge"' gen4-display-mount.scad
-//  ⚠ Only "gauge" and "spline_test" are implemented so far (below). The rest
-//     land in later tasks, each wired into the `part = "..."` selector at
-//     the same spot. spline_test is a throwaway proof piece for the toothed
-//     tilt joint (face_spline(), shared geometry) — it is not one of the
-//     assembled parts above; yoke and arm (Tasks 3-4) call face_spline()
-//     directly and never appear as "spline_test" themselves.
+//  ⚠ "gauge", "spline_test", "yoke", "arm" and "cap" are implemented so far
+//     (below). "cowl", "brow_test" and "plate" land in later tasks, each
+//     wired into the `part = "..."` selector at the same spot. spline_test
+//     is a throwaway proof piece for the toothed tilt joint (face_spline(),
+//     shared geometry) — it is not one of the assembled parts above; yoke
+//     and arm call face_spline() directly and never appear as "spline_test"
+//     themselves.
 //  ⭐ PNG RENDERS DON'T NEED `--render`. Timed on spline_test: ~21s with
 //     `--render 1` (forces the exact CGAL backend) vs ~0.3s with plain PNG
 //     export (OpenCSG preview) — ~70x, visually identical for every part in
@@ -129,10 +130,99 @@ fillet_out = 3;                 // cowl outer perimeter
 fillet_vis = 2;                 // every other visible edge
 fillet_in  = 1;                 // internal wall-to-rib junctions (anti-crack)
 
-/* [⬜ GATING MEASUREMENT — the build is not blocked, the gauge does not need it] */
-bar_d = 22.2;   // ⬜ MEASURE AT THREE CLOCK ANGLES. A used bar goes oval where
-                //    clamps have sat, and a round bore on an oval bar touches
-                //    in only two places. 22.2 is a PLACEHOLDER, not a reading.
+/* [DESIGN — ARM] the handlebar-side part: clamps the tapered bar, carries the
+   male spline that mates the yoke's, and cranks the pivot back over the
+   bike's centreline. Measured on the bike — docs/bike-fitment.md. */
+bar_d0    = 32.0;   // Ø at the bracket face (the x=0 reference bore_at() uses)
+bar_taper = 0.1;    // Ø lost per mm outward. ⚠ THE BORE IS A CONE, NOT A
+                    //   CYLINDER: a 1:10 taper, half-angle 2.86°. Across an
+                    //   18mm clamp the diameter changes 1.8mm — ~9x print
+                    //   tolerance — so a round bore would touch on a LINE at
+                    //   its large end only. See bore_at() below.
+bar_run   = 20;     // usable straight length before the bar curves upward and
+                    // becomes unusable (measured, docs/bike-fitment.md)
+clamp_w   = 18;     // clamp width along the bar. ⚠ MUST be <= bar_run
+                    // (asserted below) — it is nearly all of it on purpose,
+                    // for the longest bearing length the bar allows
+clamp_x0  = 1;      // clamp's inboard face, from the bracket face — 1mm of
+                    // air so the clamp's own edge never touches the bracket
+                    // itself (the taper means it can only creep outboard from
+                    // here if it ever moves, never inboard — the bracket
+                    // blocks that mechanically)
+shim_t    = 1.2;    // inner-tube rubber inside the bore (docs/assembly.md) —
+                    // folded into bore_at() so the PRINTED bore is sized for
+                    // the rubber-wrapped bar, not the bare metal
+arm_len   = 45;     // pivot centre above the BAR CENTRELINE. ⚠ NOT free — see
+                    // the assertion below. The clamp body's own top sits
+                    // clamp_od/2 above the bar centreline and the spline is
+                    // Ø40; below ~45 the spline fouls the clamp and the arm
+                    // would have to reach backward instead of up. 45 is the
+                    // lowest value that clears it (docs/bike-fitment.md).
+arm_crank = 32.5;   // inboard offset (toward the bike's centreline, i.e. -Y in
+                    // this part's own frame) so the screen centres on the
+                    // bike instead of sitting off to one side of it. The
+                    // bracket's right face is 22.5mm off the bike's
+                    // centreline and this 18mm clamp centres 10mm beyond
+                    // that face, so the clamp's own centre is 32.5mm off —
+                    // the arm carries that whole distance back.
+function bore_at(x) = bar_d0 - bar_taper*x + 2*shim_t;   // Ø of the PRINTED
+                    // bore at distance x from the bracket face (same x as the
+                    // table above) — the bare-bar taper plus shim_t of rubber
+                    // on both sides of the bore.
+
+clamp_od  = 48;     // clamp body OD. Sets the floor under arm_len above: the
+                    // clamp's own top sits clamp_od/2 (24mm) over the bar
+                    // centreline, so the spline (Ø40) needs arm_len -
+                    // spline_od/2 - clamp_od/2 >= 1mm of air (asserted below)
+                    // to clear it — matches the >=45 mm figure in
+                    // docs/bike-fitment.md. Also generous enough radial wall
+                    // ((48 - bore_at(clamp_x0))/2 ~= 6.85mm at the bore's own
+                    // largest end) to carry the two ear bosses below.
+pinch_gap = 2.0;    // gap at EACH of the two ear bosses (arm to cap) with the
+                    // clamp at rest. ⚠ THE MECHANISM THAT MAKES THIS A CLAMP,
+                    // not a rigid ring: without this gap the two ear faces
+                    // would meet before the bore ever closed on the bar, and
+                    // the two M5s would just crush plastic-on-plastic with
+                    // zero squeeze on the bar. Tightening draws the gap shut
+                    // and the two half-bores close in on the bar.
+ear_d     = 14;     // Ø of each bolt boss (both ears identical). Wraps the
+                    // Ø5.5 M5 clearance hole with (14-5.5)/2 = 4.25mm of ASA
+                    // on every side — plenty for a boss taking modest clamp
+                    // preload, well over the >=3mm engagement/wall figures
+                    // used elsewhere in this file.
+ear_h     = 10;     // each ear's own reach off the split plane (Z). The CAP's
+                    // half (Z from -ear_h to -pinch_gap/2) is the one that
+                    // carries the counterbore, so it is the one sized against
+                    // ear_cbore_h below (asserted).
+ear_x     = clamp_od/2 + ear_d/2 - 3;   // ear centre, off the bore axis (X).
+                    // -3mm so the boss overlaps 3mm into the round clamp body
+                    // for a solid union instead of two solids just kissing at
+                    // a point — same "overlap, don't just touch" reasoning as
+                    // every eps-overshoot cut elsewhere in this file, sized
+                    // up because this is a structural boss, not a boolean
+                    // safety margin.
+ear_bolt_d  = 5.5;  // M5 clearance — same figure hole_pattern() uses above
+ear_head_d  = 9.5;  // counterbore for the M5 socket head (m5_head_d=8.5) with
+                    // 0.5mm of radial air, same margin m5_socket_d gives the
+                    // yoke's own tool clearance
+ear_cbore_h = 4.5;  // counterbore depth — leaves >=4.5mm of the ~9mm ear
+                    // height below it before the clearance hole breaks
+                    // through, so the head seats on real material, not air
+arm_w       = 20;   // the rising rib's own structural width (Y in this part's
+                    // frame) — same role as the yoke's yoke_arm_w, sized the
+                    // same way (comfortably over 2*fillet_vis+1, asserted via
+                    // taper_wp()'s own shared guard, not repeated here)
+arm_tip_h   = 6;    // tip puck height at the pivot before the spline boss —
+                    // same construction and same reasoning as the yoke's own
+                    // yoke_tip_h (a small lead-in chamfer's worth of material,
+                    // not a taper in its own right)
+base_male   = 3;    // this male spline's own base thickness. Free choice per
+                    // docs/spline-verification.md §6 (the seating formula
+                    // holds for any base_male) — 3 is chosen to match the
+                    // value spline-verification.md §6 actually re-verified
+                    // against the shipped yoke (base_female=3), so the
+                    // seating check below is against numbers already proven,
+                    // not a fresh, unverified pair.
 
 $fn = 96;
 
@@ -395,7 +485,7 @@ module taper_wp(x_c, w, y, z0, z1) {
    only works because the wave is symmetric: shifting it by half a period is
    the same as inverting it (peak <-> trough), so hm(theta) + hf(theta) ==
    spline_h identically, at every angle (hf is hm's own formula evaluated a
-   half-period away) — see `mounts/spline-verification.md` for the mesh test
+   half-period away) — see `docs/spline-verification.md` for the mesh test
    this claim rests on.
 
    HOW THE RAMP IS BUILT, AND WHY IT ISN'T ONE hull(). The obvious way to
@@ -447,7 +537,7 @@ module taper_wp(x_c, w, y, z0, z1) {
    restricted (rod- or small-region-limited) `intersection()` for this
    geometry's mesh proof, not the unrestricted whole-ring one — full numbers,
    the `Volumes:` fingerprint that flags the failure, and the rod-probe
-   method in enough detail to re-run it: `mounts/spline-verification.md`.
+   method in enough detail to re-run it: `docs/spline-verification.md`.
 
    ORIENTATION (every caller relies on this): the flat, toothless face sits
    at z=0 — that is this instance's own mating/bonding face, whatever the
@@ -458,7 +548,7 @@ module taper_wp(x_c, w, y, z0, z1) {
    the two share a base — so that the two flat backs end up that far apart
    and the root planes come into contact with the teeth fully interleaved
    (derivation, a worked check with two DIFFERENT base values, and the
-   corrected seated/misaligned numbers: `mounts/spline-verification.md`).
+   corrected seated/misaligned numbers: `docs/spline-verification.md`).
 
    ⚠ NO DEFAULTS ON `male` OR `base`, DELIBERATELY — same reasoning as
    `boot_slot`'s missing default for `up` above. `male` selects which of two
@@ -471,7 +561,7 @@ module taper_wp(x_c, w, y, z0, z1) {
    confirmed by building that exact mistake and looking at it. OpenSCAD's
    preview draws interpenetrating triangles without resolving the boolean,
    so there is nothing to see wrong. The ONLY way to catch it is the
-   restricted-intersection method in `mounts/spline-verification.md` — not
+   restricted-intersection method in `docs/spline-verification.md` — not
    a render, however careful. Making both arguments required at least turns
    a silently-wrong call into a loud one. */
 function spline_pt(r, a, z) = [ r*cos(a), r*sin(a), z ];
@@ -506,9 +596,67 @@ module face_spline(male, base) {
   // 2*nseg+1 points from -half to +half; each adjacent PAIR of samples (at
   // both radii) becomes its own short hull(), chained by the for loop
   // rather than hulled all at once — see the block comment for why.
+  //
+  // ⚠ TROUGH-VERTEX PULL-BACK — fixes a non-manifold union, does not touch
+  // the tooth profile. Un-pulled-back (i.e. thetas running exactly to
+  // ±half), the ring was NON-MANIFOLD: 0 boundary edges (nothing is open)
+  // but dozens of edges shared by >2 faces (11 at spline_n=12, 80 at
+  // spline_n=48) — `docs/spline-verification.md` §7 has the full isolation
+  // trail. Root cause: the k=±nseg sample sits at exactly theta=±half,
+  // height 0 — the SAME point (mathematically) that the ADJACENT tooth's
+  // own copy lands on at its own ±half, since every tooth is the same
+  // `tooth()` reached through a DIFFERENT `rotate()` call. Two independent
+  // trig paths to a "same" point are not bit-identical, so CGAL's exact
+  // arithmetic sees two near- but not exactly-coincident faces meeting
+  // face-to-face and leaves a degenerate seam instead of merging them.
+  // Confirmed by isolation, not guessed: a lone tooth() is watertight, a
+  // tooth() unioned with the base disc is watertight, but two adjacent
+  // tooth()s alone (no disc at all) already reproduce the defect — so the
+  // fault is specifically the tooth-to-tooth vertex, not the intra-tooth
+  // chain (proven fine by the same test) and not the tooth-to-disc join
+  // (also proven fine).
+  //   Tried and REJECTED: extending each tooth past ±half to overlap the
+  // neighbour's first chord (with the wrapped triangular-wave formula, so
+  // the extension's height matches the neighbour's real geometry exactly)
+  // made it WORSE (4 non-manifold edges on the 2-tooth isolation, up from
+  // 1) — two independently-rotated near-duplicate surfaces crossing each
+  // other throughout the whole overlap band gives CGAL more to disagree
+  // with, not less. Also rejected: enlarging just the shared boundary
+  // vertex into a small cube — same failure, same reason (still two
+  // independently-rotated near-duplicates, just bigger ones).
+  //   The fix that actually works: stop each tooth a HAIR short of the
+  // shared boundary instead of reaching it, so the two neighbours never
+  // have a vertex at the same place at all. `trough_pullback` moves ONLY
+  // the k=±nseg sample inward in theta by a small fraction of the finest
+  // existing chord (half/nseg); its height stays exactly 0, so the tooth
+  // still touches the disc (still ONE connected body — verified by
+  // component count, not just `is_watertight`, after an early version of
+  // this fix that changed height too and silently detached every tooth
+  // into its own separate island). The sliver this opens up between
+  // neighbouring teeth is covered by the disc's own flat top, already at
+  // height 0 there, so nothing is left open. No sample other than this one
+  // moves — every interior node (everything spline-verification.md probes:
+  // half/2, 0, and their mirrors) is untouched, so the tooth PROFILE away
+  // from the exact trough point is bit-for-bit what it was.
+  //   Sized as a fraction of half/nseg, not a fixed angle, so it scales
+  // with both nseg and spline_n automatically. Swept 0.001-0.08 (fraction
+  // of one chord) at spline_n = 4, 6, 8, 12, 24, 36, 48, 72, 96, 180: still
+  // non-manifold at 0.001 (within CGAL's own numerical noise — barely
+  // pulled back at all), clean from 0.005 up at every n tried. 0.05 keeps
+  // 10x margin over that measured threshold while moving the trough vertex
+  // by well under 0.02mm at spline_od/2 — an order of magnitude below the
+  // 0.004-0.026mm contact spread spline-verification.md §5 already treats
+  // as FDM-invisible.
+  trough_pullback = (half / nseg) * 0.05;
+
   module tooth() {
-    thetas  = [ for (k = [-nseg : nseg]) k * half / nseg ];
-    heights = [ for (t = thetas) spline_h * (1 - abs(t) / half) ];
+    thetas  = [ for (k = [-nseg : nseg])
+                  (k == -nseg) ? -(half - trough_pullback) :
+                  (k ==  nseg) ?  (half - trough_pullback) :
+                  k * half / nseg ];
+    heights = [ for (k = [-nseg : nseg])
+                  (k == -nseg || k == nseg) ? 0 :
+                  spline_h * (1 - abs(k * half / nseg) / half) ];
     for (k = [0 : len(thetas) - 2])
       hull()
         for (r = [spline_id/2, spline_od/2], j = [k, k + 1])
@@ -1010,10 +1158,296 @@ module yoke() {
   }
 }
 
+/* ---- DESIGN — ARM assertions -----------------------------------
+   Bar-fitment and clamp-geometry constraints, local to the arm/cap pair —
+   same placement pattern as the yoke's own local assertions above: these
+   read values the top-of-file params-only section can't check on its own. */
+
+assert(clamp_x0 + clamp_w <= bar_run,
+  str("CLAMP EXCEEDS THE USABLE BAR: clamp_x0+clamp_w (", clamp_x0 + clamp_w,
+      "mm) reaches past bar_run (", bar_run, "mm) — beyond that the bar ",
+      "curves upward and is unusable. See docs/bike-fitment.md."));
+
+assert(arm_len - spline_od/2 - clamp_od/2 >= 1,
+  str("SPLINE FOULS CLAMP: arm_len (", arm_len, ") leaves only ",
+      arm_len - spline_od/2 - clamp_od/2, "mm between the Ø", spline_od,
+      " spline (straight up off the clamp — the worst case, before any ",
+      "inboard crank has moved it clear) and the clamp body's own top. ",
+      "Needs >=1mm of air. docs/bike-fitment.md: 45mm is the lowest ",
+      "arm_len that clears it."));
+
+assert(ear_x - ear_d/2 > bore_at(clamp_x0)/2 + 1,
+  str("EAR BREACHES THE BORE: the ear boss's own inner edge (x=",
+      ear_x - ear_d/2, ") comes within 1mm of the bore's own largest ",
+      "radius (", bore_at(clamp_x0)/2, ") — the bolt boss would cut into ",
+      "the bore instead of standing clear of it."));
+
+assert(ear_head_d + 2 <= ear_d,
+  str("COUNTERBORE TOO WIDE FOR ITS OWN EAR: ear_head_d (", ear_head_d,
+      ") leaves < 1mm of ASA on a side of the Ø", ear_d, " boss — the M5 ",
+      "head counterbore would break out through the boss's own wall."));
+
+assert(ear_cbore_h + 1 <= ear_h - pinch_gap/2,
+  str("COUNTERBORE TOO DEEP FOR ITS OWN EAR: ear_cbore_h (", ear_cbore_h,
+      "mm) leaves < 1mm of the CAP ear's own ", ear_h - pinch_gap/2,
+      "mm of material before the head would punch through the split face."));
+
+// ⚠ LAYERED WITH "EAR BREACHES THE BORE" ABOVE, same as yoke_root_len's own
+// layered guards further up this file: at today's values the ear (sitting
+// at radius 21, inside clamp_od/2=24) trips EAR BREACHES first for any
+// bore growth that would ALSO thin the wall, so this one currently reads
+// as never the first to fire. It still protects a different, independently
+// derivable fact (material exists between bore and OD at all, regardless
+// of whether an ear happens to sit in that gap) and becomes the binding
+// check the moment ear_x/ear_d change — verified reachable on its own by
+// overriding ear_x=40 (moving the ear out of the way) with bar_d0=44
+// (thickening only the bore): EAR BREACHES stays clear (33mm > 24.15mm)
+// and this one fires (48-46.3=1.7mm < 4mm) on its own.
+assert(clamp_od - bore_at(clamp_x0) >= 4,
+  str("CLAMP WALL TOO THIN: clamp_od (", clamp_od, ") over the bore's own ",
+      "largest diameter (", bore_at(clamp_x0), ") leaves < 2mm of radial ",
+      "wall at the clamp's tightest point."));
+
+arm_pivot_y = clamp_x0 + clamp_w/2 - arm_crank;   // pivot centre, along the
+                    // bar axis (this part's own Y) — the clamp's own
+                    // Y-midpoint, cranked arm_crank inboard. See
+                    // arm_crank's own header comment for the derivation.
+
+tube_ch = 1;    // lead-in bevel on the clamp tube's two open (Y) ends —
+                // cosmetic/assembly only (nothing seats against it), same
+                // magnitude as yoke_ch elsewhere in this file
+ear_ch  = 1;    // edge-break on each ear boss's own two Z-facing ends
+arm_ch  = 1;    // edge-break on the tip puck's own lead-in — same role as
+                // yoke_ch on the yoke's own tip stack
+
+/* ---- shared geometry: bar clamp ---------------------------------
+   arm() and cap() share every one of these so the two halves' bore, OD and
+   ear positions can never drift apart the way two hand-typed copies could —
+   "one fact, one home" applied inside the file, not just across documents. */
+
+// The tapered through-bore. Ø = bore_at(x) at bike-fitment distance x from
+// the bracket face; eps-overshoot at both open ends, same through-cut
+// convention as hole_pattern()/boot_slot() above.
+// ⚠ NO SEPARATE LEAD-IN CHAMFER HERE, DELIBERATELY. Every other through-hole
+// in this file gets one (hole_pattern(), the ear bolts below) because a
+// straight bore presents a sharp 90° step to whatever is entering it. This
+// bore is already a taper along its ENTIRE length — every point on its own
+// wall is already an inclined lead-in surface, by construction, so adding a
+// separate chamfer feature would only complicate the one dimension this
+// part is measured on (see the "bore is a cone" acceptance check) for no
+// real assembly benefit.
+module bar_bore() {
+  translate([0, clamp_x0 - eps, 0])
+    rotate([-90, 0, 0])
+      cylinder(d1 = bore_at(clamp_x0), d2 = bore_at(clamp_x0 + clamp_w),
+                h = clamp_w + 2 * eps);
+}
+
+// The Z>=0 (upper=true) or Z<=0 (upper=false) half of the round clamp
+// body — OD only, no bore (bar_bore() is cut once, later, from the union
+// of everything, so the half-tube and the bore can never end up cut at
+// slightly different places). A constant-clamp_od tube with a small
+// lead-in bevel at each open (Y) end, intersected against a half-space box
+// to keep only the requested half.
+// ⚠ THE MAIN CYLINDER AND EACH END HULL OVERLAP BY eps, NOT JUST TOUCH.
+// A first version stopped the main cylinder exactly at clamp_x0+tube_ch and
+// started the hull's own full-diameter disc at the SAME Y — two solids
+// meeting at an exactly coincident face, the same degenerate case
+// hole_pattern()'s and face_spline()'s own eps/pull-back comments warn
+// about elsewhere in this file (it happened to render fine here too, per
+// CGAL's own `Volumes: 2` == "one healthy solid" convention, confirmed by
+// checking it against the already-known-good yoke and gauge — but a
+// coincident face is still a fragile thing to leave sitting in the tree
+// for a future parameter change to land on). Overshooting by eps, the same
+// convention every through-cut in this file already uses, costs nothing
+// and removes the class of failure rather than trusting it not to bite.
+module clamp_od_half(upper) {
+  intersection() {
+    union() {
+      translate([0, clamp_x0 + tube_ch - eps, 0])
+        rotate([-90, 0, 0])
+          cylinder(d = clamp_od, h = clamp_w - 2 * tube_ch + 2 * eps);
+      hull() {
+        translate([0, clamp_x0 - eps, 0])
+          rotate([-90, 0, 0]) cylinder(d = clamp_od - 2 * tube_ch, h = 0.001);
+        translate([0, clamp_x0 + tube_ch + eps, 0])
+          rotate([-90, 0, 0]) cylinder(d = clamp_od, h = 0.001);
+      }
+      hull() {
+        translate([0, clamp_x0 + clamp_w - tube_ch - eps, 0])
+          rotate([-90, 0, 0]) cylinder(d = clamp_od, h = 0.001);
+        translate([0, clamp_x0 + clamp_w + eps, 0])
+          rotate([-90, 0, 0]) cylinder(d = clamp_od - 2 * tube_ch, h = 0.001);
+      }
+    }
+    translate([-clamp_od, clamp_x0 - 1, upper ? 0 : -clamp_od])
+      cube([2 * clamp_od, clamp_w + 2, clamp_od]);
+  }
+}
+
+// One ear's bolt cut, in the ear's OWN local frame (caller translates to
+// the boss centre in X,Y; Z=0 here is always the split plane).
+// arm_side=true:  plain M5 clearance through the ARM's ear (Z pinch_gap/2
+//   .. ear_h), with a small lead-in where the nyloc nut seats on top.
+// arm_side=false: the M5 HEAD counterbore, sunk into the CAP's own
+//   underside, clearance the rest of the way up to the split face — ⚠
+//   "heads counterbored" means the CAP side, so the bolts insert from
+//   underneath and the nyloc nuts tighten from on top of the ARM's ears,
+//   both accessible without disturbing anything above them.
+module ear_bolt_cut(arm_side) {
+  if (arm_side) {
+    translate([0, 0, pinch_gap/2 - eps])
+      cylinder(d = ear_bolt_d, h = ear_h - pinch_gap/2 + 2 * eps);
+    translate([0, 0, ear_h - 0.5])
+      cylinder(d1 = ear_bolt_d, d2 = ear_bolt_d + 1, h = 0.5 + eps);
+  } else {
+    translate([0, 0, -ear_h - eps])
+      cylinder(d = ear_head_d, h = ear_cbore_h + eps);
+    translate([0, 0, -ear_h + ear_cbore_h - eps])
+      cylinder(d = ear_bolt_d, h = ear_h - pinch_gap/2 - ear_cbore_h + 2 * eps);
+  }
+}
+
+// Both ear bosses — round, Z-extruded, so chamfer_slab() applies directly —
+// centred on the clamp's own Y-midpoint, symmetric about the bore axis.
+//
+// ⚠ THE BOSS ALONE ONLY MARGINALLY TOUCHES THE TUBE. ear_x was first
+// picked from a tangency check AT Z=0 (the tube's own equator, its widest
+// point) — but the boss's own Z-range starts at pinch_gap/2, not 0, and the
+// tube's available radius SHRINKS with |Z| (it is round, not a slab). At
+// the boss's own far Z (z=ear_h=10) the tube's radius is only
+// sqrt((clamp_od/2)^2 - ear_h^2) = 21.8mm — under a millimetre past the
+// boss's own inner edge. That sliver still rendered as one connected body
+// (checked against the yoke's own `Volumes: 2` == "healthy" baseline), but
+// it is exactly the kind of thin, curvature-dependent graze this file
+// elsewhere refuses to rely on (the trough-pullback note above, the
+// hull()-leak notes on taper_wp()). ear_web() below removes the class of
+// failure the same way those fixes do: don't rely on two curved surfaces
+// grazing each other — add an explicit, generously-overlapping bridge.
+module ears(upper) {
+  for (sx = [-1, 1]) {
+    translate([sx * ear_x, clamp_x0 + clamp_w/2, upper ? pinch_gap/2 : -ear_h])
+      chamfer_slab(ear_h - pinch_gap/2, ear_ch)
+        circle(d = ear_d);
+    ear_web(upper, sx);
+  }
+}
+
+// The bridge: a plain hull() between a thin slice AT the boss's own centre
+// and a thin slice well inside the tube (clamp_od/2 - 4, i.e. 4mm past the
+// tube's own surface at Z=0 — real, unambiguous solid, not a graze), over
+// the boss's own Z-span less 1mm at each end (so the bridge stays inside
+// the boss's and the tube's own silhouettes and adds no new exposed edge).
+// Deliberately narrower in Y than the boss (ear_d - 6) for the same reason.
+module ear_web(upper, sx) {
+  z0 = (upper ? pinch_gap/2 : -ear_h) + 1;
+  z1 = (upper ? ear_h : -pinch_gap/2) - 1;
+  hull() {
+    translate([sx * ear_x, clamp_x0 + clamp_w/2, (z0 + z1)/2])
+      cube([0.02, ear_d - 6, z1 - z0], center = true);
+    translate([sx * (clamp_od/2 - 4), clamp_x0 + clamp_w/2, (z0 + z1)/2])
+      cube([0.02, ear_d - 6, z1 - z0], center = true);
+  }
+}
+
+module ear_cuts(arm_side) {
+  for (sx = [-1, 1])
+    translate([sx * ear_x, clamp_x0 + clamp_w/2, 0])
+      ear_bolt_cut(arm_side);
+}
+
+/* ---- PART: arm -----------------------------------------------------
+   Clamps the tapered bar (its own upper half-tube plus one ear each side),
+   carries the male spline up and cranked inboard to the pivot.
+   docs/printing.md's own "spline face down" note is right about WHICH way
+   up to print (this file authors the part with the spline at high Z — the
+   print orientation flips that so the spline's toothed face sits near the
+   bed and the clamp bore stays horizontal either way, since the bore's own
+   axis is Y here, unaffected by a Z flip) — see the rib comment below for
+   why the rib itself is built as a riser + bridge rather than one diagonal,
+   which is the detail that actually decides whether this needs support. */
+module arm() {
+  difference() {
+    union() {
+      clamp_od_half(upper = true);
+      ears(upper = true);
+
+      // Rising rib, in TWO stages rather than one diagonal hull — not for
+      // clearance (nothing along this run needs to stay clear the way the
+      // yoke's lone-M5 socket and display chamfer did; both waypoints sit
+      // at z0 >= clamp_od/2-5 = 19, comfortably clear of the bore, whose
+      // own radius never exceeds bore_at(clamp_x0)/2 = 17.15), but for
+      // PRINTABILITY. ⚠ NOT BENCH-VERIFIED — this is an angle calculation,
+      // not a confirmed print; flag it if a real print disagrees. A single
+      // hull from the root (Y=10, z~19-27) straight to the tip
+      // (Y=arm_pivot_y=-22.5, z~34-42) rises only ~15-23mm over a 32.5mm
+      // run — 55-65° off vertical by either measure, past the ~45° a
+      // standard slicer prints unsupported — and the shape is neither a
+      // steep member (self-supporting) nor a true bridge (anchored at the
+      // SAME height at both ends), which is the shallow overhang FDM
+      // handles worst. Splitting the SAME two endpoints into a vertical
+      // riser (same Y=10 throughout, root up to the tip's own z-range) then
+      // a level bridge (same z-range throughout, root's own Y across to the
+      // tip's Y) turns one bad-angle diagonal into one plain vertical wall
+      // (trivially self-supporting) plus one true horizontal bridge
+      // (32.5mm — inside what stock FDM cooling settings typically span) —
+      // same net rise and run, same connected volume, printable without
+      // support either way it splits. ⬜ Print `arm` and confirm before
+      // trusting this over a real slicer preview.
+      hull() {
+        taper_wp(0, arm_w, clamp_x0 + clamp_w/2, clamp_od/2 - 5, clamp_od/2 + 3);
+        taper_wp(0, arm_w, clamp_x0 + clamp_w/2, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+      }
+      hull() {
+        taper_wp(0, arm_w, clamp_x0 + clamp_w/2, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        taper_wp(0, arm_w, arm_pivot_y, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+      }
+
+      // Tip puck (lead-in frustum + disc), then the male spline, flush
+      // back at arm_len — same construction and same eps overlaps as the
+      // yoke's own tip stack just above.
+      translate([0, arm_pivot_y, arm_len - arm_tip_h]) {
+        cylinder(d1 = spline_od - 2 * arm_ch, d2 = spline_od, h = arm_ch);
+        translate([0, 0, arm_ch - eps])
+          cylinder(d = spline_od, h = arm_tip_h - arm_ch + eps);
+      }
+      translate([0, arm_pivot_y, arm_len - eps])
+        face_spline(male = true, base = base_male);
+    }
+
+    bar_bore();
+    ear_cuts(arm_side = true);
+
+    // Pivot bolt clearance through the tip puck only — face_spline() cuts
+    // its own Ø(spline_id) bore through the spline itself, so this covers
+    // just the puck below it; the rib further down is never needlessly
+    // drilled.
+    translate([0, arm_pivot_y, arm_len - arm_tip_h - eps])
+      cylinder(d = pivot_bolt_clear_d, h = arm_tip_h + base_male + spline_h + 2 * eps);
+    translate([0, arm_pivot_y, arm_len - arm_tip_h])
+      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+  }
+}
+
+/* ---- PART: cap -------------------------------------------------------
+   Closes the clamp around the bar: the lower half-tube plus one ear each
+   side, counterbored so the M5 heads sit flush on the underside. Mates
+   arm() at the bore and at both ear faces (pinch_gap apart, at rest) —
+   both halves are built from the same bar_bore()/clamp_od_half()/ears()
+   so there is nothing for the two to disagree about. */
+module cap() {
+  difference() {
+    union() {
+      clamp_od_half(upper = false);
+      ears(upper = false);
+    }
+    bar_bore();
+    ear_cuts(arm_side = false);
+  }
+}
+
 // Still to come, each in its own task, landing here and wired into the
 // selector below:
-//   module arm()       — standoff linking the yoke's pivot to the cowl
-//   module cap()       — clamp cap that closes the yoke around the bar
 //   module cowl()      — rear cowl: brow, reveal, boot clearance, fillets
 //                         (DESIGN — COWL above)
 //   module brow_test() — throwaway print of the cowl's brow alone, to prove
@@ -1044,5 +1478,7 @@ part = "gauge";
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
 else if (part == "yoke") yoke();
+else if (part == "arm") arm();
+else if (part == "cap") cap();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap"));

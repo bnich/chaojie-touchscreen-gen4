@@ -11,7 +11,7 @@ SRC=src/gen4-display-mount.scad
 mkdir -p stl renders
 
 # parts implemented so far; extend as they land
-PARTS=(gauge spline_test yoke)   # extend as parts land
+PARTS=(gauge spline_test yoke arm cap)   # extend as parts land
 
 for part in "${PARTS[@]}"; do
   out="stl/gen4-${part//_/-}.stl"

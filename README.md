@@ -23,8 +23,8 @@ integrated sun brow — because on a moped the back of this display faces the wo
 | **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
 | Face spline (tilt joint) | ✅ done — meshing proven geometrically |
 | **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl) |
-| Arm + clamp cap | 🔨 next |
-| Cowl + sun brow | ⬜ |
+| **Arm + clamp cap** | ✅ done — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`); male spline proven against the yoke's female with `tools/check_fit.py` |
+| Cowl + sun brow | 🔨 next |
 | Assembly renders | ⬜ — arrive with the parts |
 
 **The fit gauge is printable today**, and it is the right thing to print first regardless (see below).

@@ -4,7 +4,9 @@ Backs the comments in `gen4-display-mount.scad`'s `face_spline()`. Read this bef
 touching the tooth geometry or before trusting any `intersection()` result on it —
 both the construction and the verification method have a documented failure mode
 below, and re-deriving either one from scratch is exactly the expensive mistake
-this note exists to prevent.
+this note exists to prevent. §7 documents a third: the un-fixed construction
+exported a non-manifold mesh (0 holes, but edges shared by >2 faces) that made
+every part unusable with `tools/check_fit.py`.
 
 All numbers below are from the shipped module (`spline_od=40, spline_id=12,
 spline_n=48, spline_h=1.6`), re-measured against the current file, not transcribed
@@ -143,7 +145,7 @@ intersection() { male();              rod(19.9, THETA); }   // -> male_top
 intersection() { female_mated(0, 0);  rod(19.9, THETA); }   // -> female_bottom
 ```
 
-Read each result's z-range with `mounts/check_stl.py` (or, for more than 2
+Read each result's z-range with `tools/check_stl.py` (or, for more than 2
 decimal places, `check_stl.read_stl()` directly — the printed 2-decimal figures
 round differently enough at this scale to matter). Overlap at that θ =
 `male_top - female_bottom`; positive means contact/interference, and OpenSCAD
@@ -170,29 +172,30 @@ doing that for Tasks 4–6's own probes too.
 
 ## 5. Corrected seated / misaligned table
 
-Supersedes the Task 2 report's original figures (0.19 / 0.38mm), which used a
-0.3mm probe rod and were inflated by exactly the smearing effect described in
-§4 — re-measured here with the 0.02mm rod against the shipped module, `base=3`
-both sides, `r=19.9`:
+Re-measured with the 0.02mm rod against the shipped module, `base=3` both
+sides, `r=19.9`, after the §7 trough-pullback fix (numbers below are
+POST-fix; §7 explains why the trough (±3.75) and peak (0) columns moved a
+little from the pre-fix figures while the quarter points did not):
 
 | θ (deg) | correctly seated — overlap | rotated half a pitch — overlap |
 |---|---|---|
-| -3.75 (male trough / female peak) | 0.0136 mm (contact) | **empty** (true gap) |
-| -1.875 (quarter point) | 0.0258 mm (contact) | 0.0000 mm (touching only) |
-| 0 (male peak / female trough) | 0.0132 mm (contact) | **1.6010 mm** (full-depth collision) |
-| +1.875 (quarter point) | 0.0258 mm (contact) | 0.0000 mm (touching only) |
-| +3.75 (male trough / female peak) | 0.0136 mm (contact) | **empty** (true gap) |
+| -3.75 (male trough / female peak) | 0.0038 mm (contact) | **-1.5934 mm** (true gap) |
+| -1.875 (quarter point) | 0.0258 mm (contact) | 0.0257 mm (touching only) |
+| 0 (male peak / female trough) | 0.0034 mm (contact) | **1.6010 mm** (full-depth collision) |
+| +1.875 (quarter point) | 0.0258 mm (contact) | 0.0257 mm (touching only) |
+| +3.75 (male trough / female peak) | 0.0038 mm (contact) | **-1.5934 mm** (true gap) |
 
-Reading this: correctly seated, the two faces are in real, small (0.013-0.026mm)
-contact everywhere sampled around a full pitch — not floating with a gap, and
-not colliding hard; the whole ramp is a matched (conjugate) pair, touching along
-its full flank rather than only at the peak/trough extremes. A half-pitch
-misalignment produces the opposite signature: a full 1.6mm collision exactly
-where peaks now land on peaks, and a true, empty gap exactly where troughs now
-land on troughs. The two scenes are unambiguously different, and the "correctly
-seated" numbers are comfortably below anything an FDM printer resolves (a
-0.4mm nozzle, 0.2mm layers) — a print will fuse this contact seamlessly rather
-than leave a visible gap or force the two faces apart.
+Reading this: correctly seated, the two faces are in real, small
+(0.004-0.026mm) contact everywhere sampled around a full pitch — not floating
+with a gap, and not colliding hard; the whole ramp is a matched (conjugate)
+pair, touching along its full flank rather than only at the peak/trough
+extremes. A half-pitch misalignment produces the opposite signature: a full
+1.6mm collision exactly where peaks now land on peaks, and a true ~1.6mm gap
+exactly where troughs now land on troughs. The two scenes are unambiguously
+different, and the "correctly seated" numbers are comfortably below anything
+an FDM printer resolves (a 0.4mm nozzle, 0.2mm layers) — a print will fuse
+this contact seamlessly rather than leave a visible gap or force the two
+faces apart.
 
 ## 6. What the shipped yoke actually calls, and what that means for the arm
 
@@ -216,13 +219,18 @@ against the shipped module, not transcribed from §5:
 ```
 seat = base_male + base_female + spline_h = 3 + 3 + 1.6 = 7.6
 male_top(θ=0)     [z-range 0.0 .. 4.6005]     = 4.6005
-female_bottom(θ=0) [z-range 4.58722 .. 7.6]   = 4.58722
-overlap = 4.6005 - 4.58722 = 0.01328 mm
+female_bottom(θ=0) [z-range 4.59710 .. 7.6]   = 4.59710
+overlap = 4.6005 - 4.59710 = 0.0034 mm
 ```
 
 Small, real, correctly-signed contact — consistent with (and, since this is
-literally the `base=3/base=3` case, numerically matching to a hair of
-rounding) §5's own θ=0 row (0.0132mm).
+literally the `base=3/base=3` case, numerically matching) §5's own θ=0 row
+(0.0034mm). `male_top` is bit-for-bit the same value as before §7's fix
+(θ=0 is the centre of a tooth's peak, an interior sample the fix never
+touches); `female_bottom` moved from 4.58722 to 4.59710 because, at this
+θ, the female half is at ITS OWN trough (its phase is half a pitch from the
+male's), which is exactly the vertex §7's fix pulls back — still a small,
+real, positive-contact number, just not bit-identical to the pre-fix one.
 
 **What Task 4's arm therefore needs:** its own male base is a free choice —
 the formula holds for any `base_male`, proven independently in the original
@@ -231,3 +239,123 @@ value the arm picks, it must compute `seat` against the female's REAL base
 (**3**, read from `gen4-display-mount.scad`'s `yoke()`, not assumed to be
 `yoke_t`), and should re-run this section's method against both shipped
 modules once the arm exists, the same way this update did.
+
+## 7. The non-manifold defect, and the trough-pullback fix
+
+Found after Task 2 closed, by a checker that didn't exist then
+(`tools/check_fit.py`, which refuses to answer on a non-watertight mesh —
+see its own header for why). Measured with trimesh (`mesh.is_watertight`
+and an edge-face-count pass: an edge shared by more than 2 faces is
+non-manifold):
+
+| part | faces | boundary edges (1 face) | non-manifold edges (>2 faces) | watertight |
+|---|---|---|---|---|
+| `spline_test`, `teeth=false` | 768 | 0 | 0 | **True** |
+| `spline_test`, `spline_n=12` | 5864 | 0 | 11 | False |
+| `spline_test`, `spline_n=48` | 16560 | 0 | 80 | False |
+| `yoke` | 21578 | 0 | 54 | False |
+
+Zero boundary edges rules out a hole (`fill_holes()` found nothing to fill);
+the count scaling with tooth count, and `teeth=false` alone being clean,
+both point at the teeth specifically, not the disc or the bore.
+
+### Isolating the junction, not guessing it
+
+`tooth()` builds each flank as a chain of `nseg=8` short `hull()`s (16 per
+tooth). There are two candidate junctions: adjacent segments *within* one
+tooth's own chain, and adjacent *teeth* meeting at the shared trough. Built
+each in isolation (no cylinder, no bore, just the raw union) and measured:
+
+| construction | faces | watertight | non-manifold edges |
+|---|---|---|---|
+| 2 adjacent segments, one flank | 56 | True | 0 |
+| 1 whole tooth (all 16 segments) | 280 | True | 0 |
+| 1 tooth + the base disc | 692 | True | 0 |
+| 2 adjacent teeth, no disc | 590 | **False** | **1** |
+| full ring (48 teeth), no disc | 14896 | **False** | **82** |
+
+The intra-tooth chain is clean at every step (proven twice: 2 segments
+alone, and the whole 16-segment tooth), and a tooth resting on the disc is
+clean too. Only two *separate* `tooth()` instances meeting each other
+reproduce the defect — 1 non-manifold edge per adjacent pair, ~82 for a
+48-tooth ring, matching the shipped part's 80 (the small gap between 82 and
+80 is the disc changing the local mesh slightly; it doesn't change which
+junction is at fault). Inspecting the actual non-manifold edge in the
+2-tooth case placed it exactly at the trough vertex (r=spline_od/2, the
+outer radius, at the shared boundary angle) where 4 faces meet instead of 2.
+
+**Root cause:** every tooth is the same `tooth()` reached through a
+different `rotate([0,0,i*step+phase])`. Tooth *i*'s own last sample and
+tooth *i+1*'s own first sample are meant to be the identical point
+(`i*step+phase+half` on one side equals `(i+1)*step+phase-half` on the
+other, algebraically) — but each is reached via a *different* `rotate()`
+call, hence a different floating-point path to "the same" angle. CGAL's
+exact arithmetic sees two near- but not bit-identical faces meeting exactly
+face-to-face and leaves a degenerate seam instead of merging them, exactly
+the "adjacent solids meeting exactly face-to-face" signature this file's
+own CLAUDE.md-equivalent warning describes for CGAL booleans elsewhere.
+
+### Two fixes tried and rejected
+
+- **Extend each tooth past ±half to overlap the neighbour's first chord**,
+  using the wrapped triangular-wave formula so the extension's height
+  matches the neighbour's real geometry exactly (a deliberate duplicate).
+  Made it WORSE: 4 non-manifold edges on the 2-tooth isolation, up from 1.
+  Two independently-rotated, near-duplicate surfaces crossing each other
+  throughout a whole overlap band gives CGAL more disagreement to resolve,
+  not less.
+- **Enlarge the shared boundary vertex into a small cube** (a marker big
+  enough to swamp the floating-point gap between the two rotate() paths).
+  Same failure, same reason: still two independently-rotated near-duplicate
+  solids, just bigger ones, at spline_n=48 giving 81 non-manifold edges —
+  no better than the original 80.
+
+### The fix that works: pull the trough vertex back, don't extend it
+
+Rather than making the two teeth's boundary geometry cross or duplicate,
+stop each tooth a small angle short of the shared boundary so the two
+neighbours never place a vertex at the same spot at all. Only the `k =
+±nseg` sample (the trough end of each flank) moves; its *height* stays
+exactly 0, so the tooth still touches the disc (still one connected body —
+checked by counting connected components, not just `is_watertight`: an
+early version of this fix changed the trough's height too and silently
+detached every tooth from the disc into its own floating island, 13
+separate bodies at spline_n=12). The small gap this opens between
+neighbouring teeth is covered by the disc's own flat top, already at height
+0 there, so nothing is left open.
+
+`trough_pullback = (half/nseg) * 0.05` — 5% of the finest existing chord,
+so it scales with both `nseg` and `spline_n` automatically. Swept
+0.001-0.08 (as a fraction of one chord) at `spline_n` = 4, 6, 8, 12, 24, 36,
+48, 72, 96, 180: still non-manifold at 0.001 (barely pulled back — within
+CGAL's own numerical noise), clean from 0.005 up at every `n` tried. 0.05
+keeps a 10x margin over that measured threshold while moving the trough
+vertex by well under 0.02mm at `spline_od/2` — an order of magnitude below
+the 0.004-0.026mm contact spread §5 already treats as FDM-invisible.
+
+Only the two boundary samples move; every interior sample (everything §5
+and §6 probe: the quarter points, the peak) is untouched, so the tooth
+PROFILE away from the exact trough point is bit-for-bit what it was.
+Re-measuring §5 and §6 after the fix (numbers now current in both
+sections) shows exactly that: the quarter-point row is unchanged to 4
+decimal places (0.0258mm both before and after), while the trough and peak
+rows — which sample at or adjacent to the pulled-back vertex — shifted by a
+few thousandths of a millimetre, still small, still real, still
+correctly-signed contact.
+
+### Verification after the fix
+
+```
+$ openscad -o stl/gen4-spline-test.stl -D 'part="spline_test"' src/gen4-display-mount.scad
+$ python3 tools/check_fit.py report stl/gen4-spline-test.stl
+    watertight True
+$ openscad -o stl/gen4-yoke.stl -D 'part="yoke"' src/gen4-display-mount.scad
+$ python3 tools/check_fit.py report stl/gen4-yoke.stl
+    watertight True
+```
+
+Both parts: 0 boundary edges, 0 non-manifold edges, 1 connected component,
+watertight True. `spline_test` bbox unchanged at 40 × 40 × 4.6mm, `yoke`
+unchanged at 103 × 90.1 × 20.5mm, `gauge` unchanged at 101 × 48.6 × 8mm —
+the fix is confined to the trough vertex and changes no part's outer
+envelope.
