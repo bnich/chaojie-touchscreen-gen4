@@ -6,7 +6,11 @@ both the construction and the verification method have a documented failure mode
 below, and re-deriving either one from scratch is exactly the expensive mistake
 this note exists to prevent. §7 documents a third: the un-fixed construction
 exported a non-manifold mesh (0 holes, but edges shared by >2 faces) that made
-every part unusable with `tools/check_fit.py`.
+every part unusable with `tools/check_fit.py`. §8 documents a fourth, found
+only after §7 closed: the teeth were watertight and manifold but almost
+entirely HOLLOW — a thin shell following the ramp's surface with no material
+filling the gap down to the disc. Manifold-ness says nothing about solid fill;
+neither defect's checks would have caught the other.
 
 All numbers below are from the shipped module (`spline_od=40, spline_id=12,
 spline_n=48, spline_h=1.6`), re-measured against the current file, not transcribed
@@ -101,6 +105,20 @@ this way across dozens of points during development and never once disagreed
 with hand-derived geometry; the whole-face boolean disagreed with it twice
 (the case above, and a smaller-scale version restricted to 5 teeth instead of
 48, ruling out "just needs simpler geometry" as the fix).
+
+⚠️ **This is not a CGAL-specific problem — `tools/check_fit.py intersect`
+(manifold3d, a different engine entirely) fails the SAME way on a whole
+spline ring**, confirmed 2026-09-14: 42.75mm³ for a correctly-seated pair
+and 0.0058mm³ for a deliberately misaligned one — backwards, since a
+misaligned (peak-on-peak) pair should report the larger volume by a wide
+margin (§5's own numbers put a single point's collision at 1.6mm deep) and
+seated should be closest to zero. Same root cause as CGAL's failure above:
+both operands are already hundreds of thin, near-touching convex `hull()`
+pieces, and that defeats a general-purpose exact boolean regardless of
+which library computes it. `check_fit.py` remains the right tool for
+whole-part clearance checks (arm vs. yoke, say) — just never `intersect`
+on two whole spline rings against each other. The rod probe (§4) is the
+only method proven trustworthy on this specific geometry.
 
 ## 4. The rod-probe method, in enough detail to re-run
 
@@ -359,3 +377,112 @@ watertight True. `spline_test` bbox unchanged at 40 × 40 × 4.6mm, `yoke`
 unchanged at 103 × 90.1 × 20.5mm, `gauge` unchanged at 101 × 48.6 × 8mm —
 the fix is confined to the trough vertex and changes no part's outer
 envelope.
+
+## 8. The hollow-tooth defect, and the base-sample fix
+
+Found after §7 closed — a real, separate defect in the SAME `tooth()`, in
+the geometry the trough-pullback fix never touched. §7's four checks
+(watertight, 0 boundary edges, 0 non-manifold edges, 1 connected component)
+all test whether a mesh's SURFACE is a closed, consistent skin. None of
+them test whether the solid it encloses is actually filled — a hollow shell
+passes all four the same as a solid part would.
+
+**The defect:** each of `tooth()`'s segments is `hull()` of exactly 4
+points — 2 radii × 2 thetas, both AT the profile height (`base+height`,
+never at `base` itself). A convex hull's z-extent is bounded by its own
+vertices, so a segment built only from its two profile-height corners never
+reaches any lower than `min(height_k, height_k+1)`. Only the one segment
+immediately adjacent to each trough (whose low end is height 0, i.e.
+z=base) ever actually touched the disc; every other segment floated a thin
+shell above it, following the ramp's top surface with nothing filling the
+gap underneath — a ribbon, not the solid ridge the whole meshing argument
+(§0's block comment in `gen4-display-mount.scad`, "every tooth is a single
+straight ridge") and the tilt-moment claim both assume.
+
+Measured three independent ways on the bare (pre-fix) `face_spline()`:
+
+- **Volume.** `spline_test` totalled 3472.3mm³ against a 3428.2mm³
+  disc-minus-bore (measured directly with `teeth=false`, not a hand
+  formula) — the teeth were contributing only **~44mm³** of a solid ridge
+  set that should run close to 900mm³.
+- **Thin-rod probe (0.02mm, the §4 method) at the quarter point
+  (θ=1.875°, r=19.9).** Solid material found only in a narrow band right
+  under the profile surface, with the disc-to-surface span below it empty
+  — the reviewer's independent sweep (17 points across one flank at
+  r=6.5/13/19.9) found the same disc-gap-thin-roof signature everywhere
+  except the exact trough.
+- **Peak (θ=0°).** Same signature: a thin roof at the profile height, air
+  below it down toward the disc.
+
+**The fix:** hull() 8 points per segment, not 4 — the same 2 radii × 2
+thetas as before, but at BOTH `z=base` and `z=base+height` at each. This
+does not move the top surface at all: a convex hull's upper envelope is
+set by its highest points, and adding points strictly below cannot pull it
+down — the same 4 profile points are still in the vertex set, so the
+mating flank §1-§6 already proved is untouched. What it adds is a proper
+bottom face at z=base and sloped side walls down to it, so every segment is
+a solid prism reaching the disc across its own full angular span, not only
+at the two ends of the chain.
+
+### Verification after the fix
+
+```
+$ openscad -o stl/gen4-spline-test.stl -D 'part="spline_test"' src/gen4-display-mount.scad
+$ python3 tools/check_fit.py report stl/gen4-spline-test.stl
+    volume 4364.414 mm^3
+    watertight True
+```
+
+- **Volume:** 4364.4mm³ total, 3428.2mm³ disc, so the teeth now contribute
+  **~936mm³** — in line with the ~900-930mm³ a solid Hirth ridge set should
+  weigh in at, up from ~44mm³.
+- **Rod probe, corrected method.** The reviewer's first attempt used a
+  0.3mm-diameter rod at a fixed radius, which is wider than the ~0.1mm of
+  radial slop between the probe and the tooth's own outer edge (od/2=20,
+  probing at r=19.9) — the same smearing trap §4 already warns about, here
+  in the radial direction instead of angular, and it produces a false
+  partial "gap" at the very edge that is a probe-sizing artifact, not a
+  hollow tooth. Repeated with the established 0.02mm rod, spanning exactly
+  `z=[base, base+expected_height]` at the probed θ (no overshoot past the
+  real profile top): at the peak (θ=0°) and the quarter point (θ=1.875°),
+  `intersection(face_spline(), rod)` is ONE connected, watertight solid
+  spanning the FULL expected range (peak: z=3.0..4.6; quarter: z=3.0..3.8)
+  — not a thin roof over air. `difference(rod, face_spline())` at the same
+  two points leaves only a sub-micron³ sliver right at the very tip (within
+  0.01mm of the profile height, an expected apex-rounding artifact, not an
+  internal void).
+- **Mesh health**, `spline_test` / `yoke` / `arm` (all three call
+  `face_spline()`; `arm` didn't exist when §7 was written):
+
+  | part | faces | watertight | boundary edges | non-manifold edges | components | volume |
+  |---|---|---|---|---|---|---|
+  | `spline_test` | 12288 | True | 0 | 0 | 1 | 4364.4mm³ |
+  | `yoke` | 17414 | True | 0 | 0 | 1 | 35410.4mm³ |
+  | `arm` | 17996 | True | 0 | 0 | 1 | 25962.8mm³ |
+
+  `yoke`'s volume rose from 34518.3mm³ to 35410.4mm³ (+892mm³, matching the
+  female spline filling in) with its bbox unchanged at 103 × 90.1 × 20.5mm.
+
+- **Seating figures (§5/§6): unchanged from their post-§7 values.** Every
+  number in both sections comes from `male_top`/`female_bottom` — the
+  MATING SURFACE, the same 4 profile points this fix never moves — so
+  re-running §4's exact method against the current file reproduces §5's
+  table and §6's `4.6005`/`4.59710`/`0.0034` to the same decimal places.
+  This isn't assumed: re-measured directly against the post-fix module
+  rather than left on the strength of the "top surface unchanged" argument
+  alone.
+- **Assertions:** all fire as before (engagement, pivot height, socket
+  clearance, standoff, pivot bore, chamfer depth, arm width, unknown part,
+  and `face_spline()`'s own `male`/`base`-required pair) — none of this
+  fix's changes touch assertion-guarded values.
+
+### Why §7's checks didn't catch it
+
+Watertight / 0 boundary / 0 non-manifold / 1 component are all properties
+of the mesh's SURFACE topology — they ask "is this skin closed and
+consistent," never "is there material inside it." A perfectly sealed
+hollow shell satisfies all four exactly as well as a solid part does; only
+a volume check or a probe that samples the interior (not just the
+boundary) can tell them apart. Worth carrying forward to any future
+`hull()`-chain construction in this file: manifold-ness and solid fill are
+independent properties, and both need their own check.

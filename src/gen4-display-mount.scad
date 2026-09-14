@@ -649,6 +649,37 @@ module face_spline(male, base) {
   // as FDM-invisible.
   trough_pullback = (half / nseg) * 0.05;
 
+  // ⚠ EVERY SEGMENT NEEDS A z=base SAMPLE TOO, OR THE TOOTH IS HOLLOW.
+  // A convex hull's z-extent is bounded by its OWN vertices — so a segment
+  // built only from its two profile-height corners (the 4-point hull this
+  // used to be: 2 radii x 2 thetas, both at base+height) never reaches any
+  // LOWER than min(z_k, z_k+1). Only the one segment adjacent to each
+  // trough (whose low end is height 0, i.e. z=base) ever actually touched
+  // the disc; every other segment floated a thin (sub-mm) shell above it
+  // with nothing filling the gap underneath — a ribbon following the
+  // ramp's top surface, not the solid ridge the mesh-proof and the tilt-
+  // moment claim both assume. Measured on the bare part before this fix:
+  // 3472mm³ total against a ~3431mm³ disc-minus-bore — the teeth were
+  // contributing only ~246mm³ of a ~915-930mm³ solid Hirth ridge set (a
+  // rod probe at the quarter point found solid material in only a
+  // 0.077mm shell out of the local tooth's full height, the rest air).
+  //   Fix: hull() 8 points per segment, not 4 — the same 2 radii x 2
+  // thetas as before, but at BOTH z=base and z=base+height at each. This
+  // does not change the TOP surface at all (a convex hull's upper envelope
+  // is set by its highest points; adding points strictly below cannot
+  // pull it down, and the same 4 profile points are still in the set) —
+  // the mating flank proven in `docs/spline-verification.md` is untouched.
+  // It adds a proper bottom face at z=base and sloped side walls down to
+  // it, so every segment is a solid prism reaching the disc across its own
+  // full theta span, not just at the chain's two ends. Confirmed on the
+  // bare face_spline(): teeth now contribute ~934mm³ (n=48), matching the
+  // expected solid-ridge figure; still watertight, still 0 non-manifold,
+  // still 1 connected component (see docs/spline-verification.md §7 for
+  // why: every segment in this loop shares its theta-boundary vertices
+  // with its immediate neighbour via the SAME `thetas`/`heights` array —
+  // one object, one rotate(), no independently-rotated near-duplicate
+  // geometry — the failure mode §7 documents needs two SEPARATE tooth()
+  // instances to trigger, and none of that changed here).
   module tooth() {
     thetas  = [ for (k = [-nseg : nseg])
                   (k == -nseg) ? -(half - trough_pullback) :
@@ -659,8 +690,9 @@ module face_spline(male, base) {
                   spline_h * (1 - abs(k * half / nseg) / half) ];
     for (k = [0 : len(thetas) - 2])
       hull()
-        for (r = [spline_id/2, spline_od/2], j = [k, k + 1])
-          translate(spline_pt(r, thetas[j], base + heights[j]))
+        for (r = [spline_id/2, spline_od/2], j = [k, k + 1],
+             z = [base, base + heights[j]])
+          translate(spline_pt(r, thetas[j], z))
             cube(0.001, center = true);
   }
 
