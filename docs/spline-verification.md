@@ -152,14 +152,19 @@ gap there.
 
 ⚠️ **Probe by calling the module directly — never by `import()`ing an already-
 exported STL.** Re-importing `gen4-yoke.stl` (or any part's own export) and
-intersecting it against a probe gives a FALSE EMPTY: CGAL refuses the boolean
-with "the given mesh is not closed" on the re-imported ASCII STL, and the
-result reads exactly like a genuine clearance proof — no error surfaced to
-`grep`, just nothing written. The part's own `.stl` export is watertight by
-every check this file uses (`check_stl.py`'s bbox, `Volumes:`, and the
-union-find connected-component check); it is specifically the round-trip
-through `import()` that produces a mesh CGAL won't boolean against. Every
-proof in Tasks 3+ intersects the live module (`yoke()`, `arm()`, …) called
+intersecting it against a probe gives a FALSE EMPTY (verified,
+2026-09-13): OpenSCAD prints `ERROR: The given mesh is not closed! Unable
+to convert to CGAL_Nef_Polyhedron.` to stderr, then reports the top-level
+object empty and exits non-zero — the error line IS there to `grep`, but
+it is easy to miss if the check is written the way every other probe in
+this file is (`grep -iE "empty|error"` then treat "no STL written" as the
+proof passing): that pattern reads this failure as a clean, genuine
+clearance result, not a boolean CGAL refused to even attempt. The part's
+own `.stl` export is watertight by every check this file uses
+(`check_stl.py`'s bbox, `Volumes:`, and the union-find connected-component
+check); it is specifically the round-trip through `import()` that produces
+a mesh CGAL won't boolean against. Every proof in Tasks 3+ intersects the
+live module (`yoke()`, `arm()`, …) called
 straight out of `gen4-display-mount.scad`, never a re-imported mesh — keep
 doing that for Tasks 4–6's own probes too.
 
