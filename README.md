@@ -21,9 +21,9 @@ integrated sun brow — because on a moped the back of this display faces the wo
 | Part | State |
 |---|---|
 | **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
-| Face spline (tilt joint) | 🔨 in progress |
-| Yoke | ⬜ next |
-| Arm + clamp cap | ⬜ |
+| Face spline (tilt joint) | ✅ done — meshing proven geometrically |
+| **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl) |
+| Arm + clamp cap | 🔨 next |
 | Cowl + sun brow | ⬜ |
 | Assembly renders | ⬜ — arrive with the parts |
 
@@ -75,14 +75,20 @@ real parts use, instead of a proxy for it. See [docs/assembly.md](docs/assembly.
 
 ## Making it fit your bike
 
-One number is yours to supply:
+📄 **[docs/bike-fitment.md](docs/bike-fitment.md)** — what the clamp needs from your bar, and where
+the screen ends up.
+
+⚠️ **Measure the bar diameter at three points along the run, not one.** A single reading cannot tell a
+tapered bar from a parallel one, and that decides whether the bore is a cone or a cylinder. On the
+REVV1 FS the bar tapers **1:10** through the clamp zone — a cylindrical bore there would touch on a
+line at one end only.
 
 ```openscad
-bar_d = 22.2;   // your handlebar diameter at the clamp point
+bar_d0    = 32.0;   // Ø where the clamp's inboard face sits
+bar_taper = 0.1;    // Ø lost per mm outward; 0 for a parallel bar
+bar_run   = 20;     // usable straight length before the bar curves
+arm_len   = 45;     // pivot above the bar centreline
 ```
-
-**Measure it at three clock angles.** A used bar goes oval where clamps have sat, and a round printed
-bore on an oval bar touches in only two places.
 
 Everything else is derived. Change a parameter and the model's `assert()` guards will stop the render
 and name the constraint you broke, rather than quietly producing a part that does not work.
@@ -95,6 +101,8 @@ and name the constraint you broke, rather than quietly producing a part that doe
 |---|---|
 | **[docs/display-geometry.md](docs/display-geometry.md)** | Every measurement of the display's back, and the three things that catch people out. **Read this if you are designing your own bracket rather than printing ours** |
 | **[docs/design-notes.md](docs/design-notes.md)** | The design constraints, and what each one protects |
+| **[docs/bike-fitment.md](docs/bike-fitment.md)** | What the clamp needs from your handlebar, where the screen ends up, and how to adapt it to a different bar |
+| **[docs/spline-verification.md](docs/spline-verification.md)** | How the tilt joint's teeth were proven to mesh — and why the obvious ways of checking give wrong answers |
 | **[docs/printing.md](docs/printing.md)** | Material, per-part orientation, settings, print order |
 | **[docs/assembly.md](docs/assembly.md)** | Hardware list, order of assembly, the 5 mm thread warning, setting the tilt |
 
@@ -122,8 +130,8 @@ Exports every part and checks each bounding box. Individual parts:
 openscad -o out.stl -D 'part="yoke"' src/gen4-display-mount.scad
 ```
 
-Valid names: `gauge`, `spline_test`, and — as they land — `yoke`, `arm`, `cap`, `cowl`, `brow_test`,
-`plate`. An unrecognised name fails loudly on purpose.
+Valid names: `gauge`, `spline_test`, `yoke`, and — as they land — `arm`, `cap`, `cowl`,
+`brow_test`, `plate`. An unrecognised name fails loudly on purpose.
 
 ---
 

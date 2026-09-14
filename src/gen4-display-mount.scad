@@ -25,6 +25,15 @@
 //     tilt joint (face_spline(), shared geometry) — it is not one of the
 //     assembled parts above; yoke and arm (Tasks 3-4) call face_spline()
 //     directly and never appear as "spline_test" themselves.
+//  ⭐ PNG RENDERS DON'T NEED `--render`. Timed on spline_test: ~21s with
+//     `--render 1` (forces the exact CGAL backend) vs ~0.3s with plain PNG
+//     export (OpenCSG preview) — ~70x, visually identical for every part in
+//     this file so far. A failed assert() still prints its ERROR line during
+//     CSG-tree evaluation either way (that happens before either backend
+//     runs), so the fast path keeps the loud-failure safety net. Use
+//     `--render` only when you need the exact boolean result itself (e.g.
+//     the mesh-proof STLs in spline-verification.md) — not for a batch of
+//     inspection PNGs (Task 6).
 // ============================================================
 
 /* [DISPLAY — canonical, do not edit without changing docs/display-geometry.md too] */
@@ -96,6 +105,10 @@ yoke_t     = 8;                 // bearing-face thickness. Paired with m5_len: 1
                                 // which is worth having under a 5" screen on a
                                 // hub-motor moped.
 pivot_c    = [ 80, 100 ];       // ⚠ DM-6. Below the housing. See assertion.
+pivot_bolt_clear_d = 6.4;       // M6 clearance through both spline halves —
+                                // named here (not just typed inline at the
+                                // yoke's own bore) so Task 4's arm drills the
+                                // identical bore, not a separately-guessed one.
 spline_od  = 40;
 spline_id  = 12;                // M6 clearance + boss
 spline_n   = 48;                // 48 teeth = 7.5 deg steps
@@ -258,6 +271,30 @@ module boot_slot(t, up, top_y) {
 // the assertion above still catches a short one either way.
 slot_reach = disp_h;
 
+// Bevels the top AND bottom edge of a linear_extrude(h) of the 2D child
+// profile by `ch`, at 45 deg, via a 3-slice hull() instead of minkowski() —
+// this file's own geometry does not get to trust a CGAL boolean OR a CGAL
+// minkowski() (spline-verification.md §3), so the edge break is built the
+// same robust way the spline teeth are: short hull()s of simple pieces, not
+// one complex operator. Two thin (0.01mm) slices of the profile inset by
+// `ch`, hulled through a full-size middle slice, taper linearly between
+// them — the same "grow, then shrink back" idea as the offset(r)/
+// offset(delta=-r) silhouette fillet above, just carried into Z. Requires
+// the child profile to be CONVEX (a hull() across all three slices otherwise
+// bridges over any concave notch and silently fills it in) — every caller in
+// this file passes a hull()-of-circles-derived profile, which is convex by
+// construction.
+module chamfer_slab(h, ch) {
+  assert(2 * ch < h,
+    str("CHAMFER TOO DEEP: 2*ch (", 2 * ch, ") must be < h (", h,
+        ") or the top and bottom bevels invert into each other."));
+  hull() {
+    linear_extrude(0.01) offset(delta = -ch) children(0);
+    translate([0, 0, ch]) linear_extrude(h - 2 * ch) children(0);
+    translate([0, 0, h - 0.01]) linear_extrude(0.01) offset(delta = -ch) children(0);
+  }
+}
+
 /* ---- shared geometry: face_spline ------------------------------
    The toothed tilt joint between the yoke (screen side, Task 3) and the arm
    (handlebar side, Task 4). Both call this directly — it never appears as
@@ -286,28 +323,61 @@ slot_reach = disp_h;
    those two phases) — every peak of one then falls exactly in a trough of
    the other, at all n indexed angles at once, not just a favoured one. This
    only works because the wave is symmetric: shifting it by half a period is
-   the same as inverting it (peak <-> trough), so hm(theta) + hf(theta| male,
-   female) == spline_h identically, at every angle — see the mesh test in
-   the Task 2 report for the derivation this geometry relies on, including
-   the seating offset below.
+   the same as inverting it (peak <-> trough), so hm(theta) + hf(theta) ==
+   spline_h identically, at every angle (hf is hm's own formula evaluated a
+   half-period away) — see `mounts/spline-verification.md` for the mesh test
+   this claim rests on.
 
-   A tooth is built as hull() of 6 points: 4 at the trough height (this
-   tooth's base — its two angular edges, at both radii) and 2 at the peak
-   height (this tooth's own centre angle, at both radii). hull() of those
-   six is a single ruled wedge whose flank is correctly scaled at every
-   radius, because it is built from two already-correctly-scaled radial
-   profiles rather than one profile shrunk toward a centroid as it gains
-   height. (`linear_extrude(scale=...)` of one radial cross-section was
-   tried first and rejected for exactly that reason: `scale` shrinks BOTH
-   plan axes toward the centroid as it extrudes, so a ridge meant to run the
-   full spline_id/2..spline_od/2 span collapses toward a single point at
-   full height instead — a starburst of spikes meeting near the bore, not
-   radial ridges reaching the tip. Confirmed by rendering it, not by
-   inspection alone — see the Task 2 report.) The 6 hull points are dropped
-   in as zero-size markers (`cube(0.001, center=true)`) rather than typed
-   out as a hand-wound `polyhedron()`: the wedge is convex (a ridge line
-   centred over its own base footprint always is), so hull() gets every
-   face right without anyone hand-winding a face list.
+   HOW THE RAMP IS BUILT, AND WHY IT ISN'T ONE hull(). The obvious way to
+   build one flank is hull() of two points (trough, at ±half from the
+   tooth's centre) and one point (the peak), at both radii — 6 points, one
+   hull(). That construction was tried and MEASURED WRONG: hull() joins the
+   trough point at radius r_i to the trough point at radius r_o with a
+   straight CARTESIAN edge, not a constant-radius arc, and that chord dips
+   inboard of the true circle between its ends. The resulting flank BOWS
+   away from "height independent of radius" by up to 0.43 mm at mid-radius
+   on this part's own numbers (spline_od 40, spline_n 48) — sampled with a
+   probe rod through the solid, not eyeballed. Mated against a correctly
+   phased partner this bow shows up as real, non-negligible interference
+   (tens of mm³ over the full ring), not the near-zero a "provably meshing"
+   joint needs. (`linear_extrude(scale=...)` of one radial cross-section was
+   tried before that and rejected outright: `scale` shrinks BOTH plan axes
+   toward the centroid as it extrudes, so a ridge meant to run the full
+   spline_id/2..spline_od/2 span collapses toward a single point at full
+   height instead — a starburst of spikes meeting near the bore, not radial
+   ridges reaching the tip.)
+     The fix is to chain many short hull()s instead of one long one: each
+   flank is walked in `nseg` steps from trough to peak, and each step is its
+   own hull() of 4 points (2 radii x 2 adjacent theta samples), with the
+   height at every sample taken from the exact triangular-wave formula, not
+   interpolated from the previous hull. Shrinking the angle per chord
+   shrinks the chord's inboard dip much faster than linearly, so a modest
+   nseg (8, i.e. 16 short hulls per tooth) brings two mated faces down to a
+   fraction of a millimetre of interference at their design distance —
+   confirmed the same way, by sampling, not by re-trusting the construction
+   because it "should" work this time too (numbers: spline-verification.md).
+   Every hull point is dropped in as
+   a zero-size marker (`cube(0.001, center=true)`) rather than typed out as
+   a hand-wound `polyhedron()`: each short segment is convex by the same
+   argument as the single wedge was, so hull() gets every face right
+   without anyone hand-winding a face list.
+
+   VERIFYING TWO FACES ACTUALLY MESH IS NOT A ONE-LINE intersection(). A
+   whole-ring `intersection(){ male_face; female_face; }` (48 teeth against
+   48 teeth, hundreds of small hull() pieces on each side) was tried as the
+   mesh proof and gave answers that CONTRADICTED direct measurement at the
+   same relative pose — including reporting near-zero interference for a
+   deliberately-misaligned (peak-on-peak) pair that a probe at that exact
+   angle shows colliding a full spline_h deep. That is CGAL/OpenSCAD Nef
+   polyhedron booleans losing their footing on two operands that are each
+   already hundreds of thin, near-touching convex pieces — not a defect in
+   the modelled solid, confirmed by re-running the identical pair restricted
+   to a small probe volume first (via `intersection()` with a thin rod),
+   which reproduces the hand-derived answer exactly every time. So: trust a
+   restricted (rod- or small-region-limited) `intersection()` for this
+   geometry's mesh proof, not the unrestricted whole-ring one — full numbers,
+   the `Volumes:` fingerprint that flags the failure, and the rod-probe
+   method in enough detail to re-run it: `mounts/spline-verification.md`.
 
    ORIENTATION (every caller relies on this): the flat, toothless face sits
    at z=0 — that is this instance's own mating/bonding face, whatever the
@@ -317,10 +387,33 @@ slot_reach = disp_h;
    translate it by `base + base_f + spline_h` — NOT `2*base+spline_h` unless
    the two share a base — so that the two flat backs end up that far apart
    and the root planes come into contact with the teeth fully interleaved
-   (derivation and a worked check: Task 2 report). */
+   (derivation, a worked check with two DIFFERENT base values, and the
+   corrected seated/misaligned numbers: `mounts/spline-verification.md`).
+
+   ⚠ NO DEFAULTS ON `male` OR `base`, DELIBERATELY — same reasoning as
+   `boot_slot`'s missing default for `up` above. `male` selects which of two
+   phases a given face is cut at, and phase correctness is a RELATIONSHIP
+   BETWEEN TWO INSTANCES, not a property either instance can check alone —
+   a caller that gets the female's `male=` wrong (e.g. relying on a
+   `male=true` default for what should be the other half) produces a
+   peak-on-peak collision that is INDISTINGUISHABLE FROM A CORRECTLY MESHED
+   JOINT IN ANY RENDER, including a direct side-on orthographic one —
+   confirmed by building that exact mistake and looking at it. OpenSCAD's
+   preview draws interpenetrating triangles without resolving the boolean,
+   so there is nothing to see wrong. The ONLY way to catch it is the
+   restricted-intersection method in `mounts/spline-verification.md` — not
+   a render, however careful. Making both arguments required at least turns
+   a silently-wrong call into a loud one. */
 function spline_pt(r, a, z) = [ r*cos(a), r*sin(a), z ];
 
-module face_spline(male = true, base = 3) {
+// Seating: mirror the partner in Z, translate by base + partner's base +
+// spline_h — see ORIENTATION above for the derivation.
+module face_spline(male, base) {
+  assert(male == true || male == false,
+    "face_spline(): `male` must be given explicitly (true or false) — no default. See the ⚠ NO DEFAULTS note above.");
+  assert(is_num(base),
+    "face_spline(): `base` must be given explicitly — no default. See the ⚠ NO DEFAULTS note above.");
+
   step  = 360 / spline_n;     // 7.5 deg at the default 48 teeth
   half  = step / 2;
   phase = male ? 0 : half;    // the ONLY difference between the two calls —
@@ -328,18 +421,29 @@ module face_spline(male = true, base = 3) {
                               // half-step shift is what makes two copies of
                               // the same wave nest instead of collide.
 
+  // Segments per flank (trough->peak); see the block comment above for why
+  // this exists at all. 8 (16 short hulls per tooth, 768 total for the
+  // whole ring) was the smallest value that got two mated faces' measured
+  // interference at their design distance down to a fraction of a
+  // millimetre everywhere sampled — comfortably inside FDM's own slop.
+  // Raise it if a future spline_n/spline_od combination (a longer chord per
+  // segment) reopens a measurable gap; re-run the mesh test either way.
+  nseg = 8;
+
   // One tooth, drawn in its own LOCAL frame (peak at theta=0, base flush
   // with the disc top at z=base); rotate() below places n copies at
-  // i*step + phase. Nested `for` cross-product: 4 base corners (2 angles x
-  // 2 radii) plus 2 peak points (1 angle x 2 radii) = the 6 hull points
-  // described above.
+  // i*step + phase. `thetas`/`heights` sample the exact triangular wave at
+  // 2*nseg+1 points from -half to +half; each adjacent PAIR of samples (at
+  // both radii) becomes its own short hull(), chained by the for loop
+  // rather than hulled all at once — see the block comment for why.
   module tooth() {
-    hull() {
-      for (a = [-half, half], r = [spline_id/2, spline_od/2])
-        translate(spline_pt(r, a, base)) cube(0.001, center = true);
-      for (r = [spline_id/2, spline_od/2])
-        translate(spline_pt(r, 0, base + spline_h)) cube(0.001, center = true);
-    }
+    thetas  = [ for (k = [-nseg : nseg]) k * half / nseg ];
+    heights = [ for (t = thetas) spline_h * (1 - abs(t) / half) ];
+    for (k = [0 : len(thetas) - 2])
+      hull()
+        for (r = [spline_id/2, spline_od/2], j = [k, k + 1])
+          translate(spline_pt(r, thetas[j], base + heights[j]))
+            cube(0.001, center = true);
   }
 
   difference() {
@@ -362,6 +466,10 @@ module face_spline(male = true, base = 3) {
    Throwaway print of one face alone — proves the tooth geometry (even,
    radial, meshing, bore clear through) before it is buried inside the yoke
    or arm, where a bad tooth costs a lot more print time to notice. */
+// base=3 is arbitrary — this part exists only to prove the tooth geometry
+// (even, radial, meshing, bore clear through), not to stand in for the
+// yoke's or arm's real pedestal thickness, so it's picked for print speed
+// (thin) rather than tied to yoke_t the way gauge_t is tied to it below.
 module spline_test() { face_spline(male = true, base = 3); }
 
 /* ---- PART: gauge ---------------------------------------------
@@ -401,9 +509,377 @@ module gauge() {
   }
 }
 
+/* ---- PART: yoke ------------------------------------------------
+   The only part that touches the display: bears on the flat band through
+   the three bolt pads, stands the lower arm off the chamfer beyond the band,
+   and carries the female half of the tilt spline at the pivot. */
+
+yoke_arm_w    = 26;   // width of the arm's root at hole_lone — a bit over the
+                       // Ø24 pad it grows out of, because that pad's own
+                       // chord is narrower than 26 by the time it reaches
+                       // yoke_root_len below its centre (a circle, not a
+                       // rectangle) — the wider root flares the transition
+                       // into the taper instead of starting from that chord.
+yoke_root_len =  6;    // how far (+Y, toward the plate) the arm's flush root
+                       // reaches from hole_lone's own pad — must stay inside
+                       // the flat band (asserted below) so this reinforcement
+                       // still bears, unlike the taper beyond it. ⚠ MUST clear
+                       // 2*fillet_vis (asserted below) — not a single unsafe
+                       // point but a whole ZONE: swept H = 3.5, 3.9, 3.99, 4.0,
+                       // 4.01, 4.1, 5, 6 through `offset(r=fillet_vis)
+                       // offset(delta=-fillet_vis) square([26, H])` and every
+                       // H <= 2*fillet_vis (4mm) came back EMPTY — not a
+                       // smaller fillet, no warning, nothing — while 4.01
+                       // already renders normally. The grow-then-shrink round
+                       // trip closes the last straight sliver to zero width
+                       // everywhere at or under that tangency, not just at
+                       // it. That silently dropped the entire arm root, which
+                       // is how this part first exported as two disjoint
+                       // bodies (CGAL `Volumes: 3`) even though every
+                       // face-overlap in the rest of the arm looked fine.
+yoke_standoff =  8;    // how far the arm's pivot end lifts clear (+Z, away
+                       // from the display) of the chamfer beyond the flat
+                       // band. Outside band_y0/band_y1 the shell is no
+                       // longer flat (see the FLAT BAND header comment); a
+                       // rib still sitting at yoke_t there risks bearing on
+                       // that chamfer instead of standing off it. ⚠ MUST
+                       // clear yoke_t — asserted below, on yoke_tip_z0 (the
+                       // tip's own lowest point, yoke_t+yoke_standoff-
+                       // yoke_tip_h). Criterion 1 needs THAT point, not just
+                       // the tip's top, at or above yoke_t, or the tip
+                       // itself sits back down in the danger zone regardless
+                       // of how the taper between root and tip is built.
+                       // ⚠ THIS GUARD WAS MISSING FOR A WHILE — a version of
+                       // this comment claimed it existed under a name
+                       // (`yoke_riser_z1`) that was never actually written
+                       // anywhere in the file. Swept yoke_standoff = 1, 3, 5
+                       // against that unguarded state: all three rendered
+                       // clean (exit 0, no assertion) and produced CGAL
+                       // `Volumes: 3` — the exact two-body split this whole
+                       // waypoint construction exists to prevent, passing
+                       // silently. 6 and 7 already gave `Volumes: 2`, so the
+                       // real threshold is yoke_standoff >= 6; the assert
+                       // below is the guard that comment always should have
+                       // had.
+yoke_ch       =  1;    // 45 deg edge-break on every slab-like face this part
+                       // adds (the plate, the arm's root) — same purpose as
+                       // hole_pattern()'s own countersink, carried to this
+                       // part's outer edges so nothing here is a bare 90 deg
+                       // print edge. A chamfer, not a round radius, and built
+                       // with chamfer_slab()'s hull()-of-slices — deliberately
+                       // not minkowski(), which is a CGAL operation and this
+                       // file's geometry doesn't get to trust those
+                       // (spline-verification.md §3).
+
+// Southern (more negative model-Y) edge of the arm's flush root — the one
+// value that pins where the flat, unaffected-by-the-tip territory ends.
+//
+// ⚠ A SINGLE hull() FROM THE ROOT ALL THE WAY TO THE TIP LEAKS HEIGHT
+// BACKWARD INTO THE ROOT'S OWN FOOTPRINT. The root's own top face is flat
+// at yoke_t everywhere on its own — but hull()ing it directly against the
+// tip (which reaches z = yoke_t+yoke_standoff+6, taller, and centred far to
+// the south) does not just taper cleanly between the two: a convex hull is
+// bounded only by the z-RANGE of its inputs, not by either input's own
+// per-point height, so a supporting plane tangent to a HIGH point on the
+// tip and a DIFFERENT point on the root can sit above the root's own flat
+// top even directly above the root's own footprint. Measured, not just
+// argued, with a 0.02mm rod (spline-verification.md §4's method) through a
+// reconstruction of this exact rejected single-hull() arm, at the current
+// yoke_standoff=8: 0mm excess on the bolt's own axis (the hull isn't
+// pulled up AT the centre), 1.9mm at the Ø9.5 socket's own sweep boundary
+// (hole_lone y - m5_socket_d/2) — the point the socket-clearance criterion
+// actually cares about — and 2.5mm at the root's own southern edge
+// (yoke_root_y0), the worst point sampled. This is the failure DM-6
+// already warns about (the pivot's own height covering the lone M5),
+// recurring one level down in the arm's own construction instead of the
+// spline's.
+//
+// Fix: hull() the tip against a thin SLICE of the root's own cross-section
+// (below), not the root solid itself, pinned at this one y value. A convex
+// hull can never exceed the y-range of its inputs, so whatever tilt hulling
+// with the taller tip introduces is confined to y <= yoke_root_y0 + eps —
+// south of the root's own territory, checked below against the socket.
+yoke_root_y0 = p(hole_lone)[1] - yoke_root_len;
+
+// The lone M5's own socket (criterion: "a socket or key must get to it")
+// sweeps a Ø9.5 circle centred on the hole, so it reaches m5_socket_d/2
+// south of the hole into the root's own territory. That reach must stay
+// NORTH of (numerically greater than) yoke_root_y0 + eps, or the confined
+// tilt above would land inside the socket's own sweep instead of outside
+// it — the exact failure this whole construction exists to avoid.
+//
+// ⚠ WHAT THIS PROVES, AND WHAT IT DOESN'T. This (and the matching
+// yoke_ev_socket-style probe in the part's own report) only proves
+// STRAIGHT-DOWN insertion clearance: nothing sits directly above the head
+// along the bolt's own axis. It does NOT prove a ratchet can turn the
+// bolt — checked separately (a 6x12mm handle swept from the head): south,
+// toward the arm root, it collides within about 6mm of travel (the root's
+// own southern edge is only yoke_root_len away); north, away from the arm,
+// it is clear for the full length tried. So the honest claim is "the
+// socket seats with nothing above it", not "any tool can turn this bolt" —
+// the ratchet has to swing away from the arm, not toward it. Worth a line
+// in the work order / assembly notes, not just here.
+m5_socket_d = 9.5;   // generic 3/8" hex socket, the tool that turns the bolt
+assert(p(hole_lone)[1] - m5_socket_d/2 > yoke_root_y0 + eps,
+  str("SOCKET REACHES THE TILTED ZONE: the Ø", m5_socket_d,
+      " socket's own sweep reaches y=", p(hole_lone)[1] - m5_socket_d/2,
+      ", not clear of the confined-tilt boundary at yoke_root_y0+eps=",
+      yoke_root_y0 + eps, "."));
+
+// The arm-tip stack's own local height (frustum lead-in + disc, see the
+// union below) and, from that, the z its LOWEST point sits at — the value
+// yoke_standoff's own header comment promises is guarded. Named so that
+// promise is checkable instead of a dangling forward-reference.
+yoke_tip_h  = 6;
+yoke_tip_z0 = yoke_t + yoke_standoff - yoke_tip_h;
+
+// yoke_standoff's own guard: the tip's lowest point must sit AT OR ABOVE
+// yoke_t, or the tip itself — not merely the taper reaching it — sits back
+// down in the danger zone. This is the assert a stale comment once claimed
+// existed under the name `yoke_riser_z1` (it did not; grep found only the
+// comment). Swept, not just derived: yoke_standoff = 1, 3, 5 all rendered
+// clean with NO assertion and produced CGAL `Volumes: 3` (a real two-body
+// split) before this existed; 6 and 7 already gave `Volumes: 2`, matching
+// the >= yoke_t threshold below exactly.
+assert(yoke_tip_z0 >= yoke_t,
+  str("TIP TOO LOW: yoke_tip_z0 (", yoke_tip_z0, ") sits below yoke_t (",
+      yoke_t, ") — the tip end of the arm is back in the danger zone no ",
+      "matter how the taper leading to it is built. Needs yoke_standoff >= ",
+      yoke_tip_h, " (currently ", yoke_standoff, ")."));
+
+// ⚠ A SECOND, INDEPENDENT convex-hull leak, in the OTHER direction. The
+// root-to-tip taper also needs criterion 1 (never bears on the chamfer
+// beyond the band): every point south of the band edge must sit at
+// z >= yoke_t. Hulling the root (z as low as 0) STRAIGHT to the tip does
+// the opposite of the socket leak above — instead of pulling z UP where it
+// should stay at yoke_t, a straight line from the root's own z=0 to the
+// tip's z (however high) passes through LOW z values for a good stretch of
+// y beyond the root, because the hull must contain every point on that
+// line, root to tip, and only reaches the tip's height AT the tip.
+// Measured (a probe box over the whole danger zone against a
+// reconstruction of this exact rejected single-hull() arm, at the current
+// yoke_standoff=8): material was found continuously from y=-46.99 (the
+// display's own bottom edge) up through y=-24.61 (the band edge, i.e. the
+// WHOLE danger zone), with a minimum z of 0.65 — well under yoke_t, sitting
+// almost flush against the display's own back-face plane exactly where the
+// FLAT BAND comment says the shell chamfers away underneath it.
+//
+// Fix: two more waypoint slices, exactly as thin (2*eps) and exactly as
+// confined (by the same y-bounding argument) as yoke_root_y0's own fix
+// above, so that no single hull() spans BOTH a z=0 point and a distant,
+// taller one:
+//   yoke_riser_y0 (= yoke_root_y0, the root's own edge) at z=[0,yoke_t] —
+//     hulled to —
+//   yoke_riser_y1 (just north of the band edge) at z=[yoke_t+1, yoke_t+
+//     yoke_standoff] — ALREADY at the full standoff height, confined to
+//     y >= band edge (never reaches the danger zone) — hulled to —
+//   the tip, whose OWN lowest point is now >= yoke_t (yoke_standoff's own
+//     guard above) — so this last hull is a convex combination of two
+//     inputs that are BOTH already at z >= yoke_t, which by itself
+//     guarantees every point of the result is too, everywhere from the
+//     band edge to the tip. No interpolation to trust; both known-safe
+//     endpoints hulled straight to the danger-zone target.
+yoke_riser_y0 = yoke_root_y0;
+yoke_riser_y1 = p([0, band_y1])[1] + 2 * eps;
+// ⚠ THIS IS ALSO THE ONLY "arm root stays on the band" GUARD. Since
+// yoke_riser_y0 is just yoke_root_y0 by another name, this margin (root's
+// edge to band edge, less 4*eps) is strictly tighter than plainly requiring
+// yoke_root_y0 >= the band edge — so this is the check that actually fires
+// first for that failure too. See the note after the fillet assert above.
+assert(yoke_riser_y1 < yoke_riser_y0 - 2 * eps,
+  str("RISER TOO SHORT: yoke_riser_y0 (", yoke_riser_y0, ") to yoke_riser_y1 (",
+      yoke_riser_y1, ") leaves no real span once both waypoints' own 2*eps ",
+      "thickness is accounted for — the root barely clears the band with ",
+      "too little margin left for this riser to fit ahead of it."));
+
+// A thin (2*eps in Y) slice of the arm's own rectangular footprint at a
+// given y, spanning z0..z1 — exists only to pin where one hull() ends and
+// the next begins (see yoke_root_y0 and yoke_riser_y0/y1's block comments).
+// Its own corners still round with fillet_vis, the same as every other
+// silhouette in this part: a sharp-cornered box hulled against a smooth
+// (fillet_vis-rounded, or round spline_od) neighbour leaves the box's own
+// corners as visible ridges running the length of the taper, since hull()
+// only smooths where BOTH sides are already smooth. Built by rotating a
+// normal linear_extrude() 90 deg — that plane is the (arm-width x z-height)
+// cross-section this waypoint actually presents to its neighbours, not the
+// XY plane chamfer_slab() extrudes from.
+module yoke_wp(y, z0, z1) {
+  translate([p(hole_lone)[0] - yoke_arm_w/2, y + eps, z0])
+    rotate([90, 0, 0])
+      linear_extrude(2 * eps)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          square([yoke_arm_w, z1 - z0]);
+}
+
+// Convex hull of the three bolt pads. "Y-truss" (task goal) describes the
+// STRUCTURAL layout — three legs off a shared span — not the outline: this
+// stays a plain hull(), so it is provably convex (chamfer_slab() below
+// requires that of whatever profile it's given, and a notched literal Y
+// would violate it silently).
+module yoke_profile() {
+  hull() {
+    for (h = [holes[0], holes[1]]) translate(p(h)) circle(d = 22);
+    translate(p(hole_lone)) circle(d = 24);
+  }
+}
+
+// The flat band, as a 2D rectangle in model space: full display width (never
+// the binding edge — yoke_profile() is already narrower than disp_w) by the
+// band's own Y extent. Clipping the truss hull to this is what keeps the
+// bearing face inside band_y0..band_y1 (criterion 1) — hole_lone's own Ø24
+// pad alone reaches past band_y1 without it (see FLAT BAND header comment).
+module yoke_band_2d() {
+  translate([-disp_w/2, p([0, band_y1])[1]])
+    square([disp_w, band_y1 - band_y0]);
+}
+
+// This part's own top edge along the boot's X-band, for boot_slot()'s
+// top_y contract — NOT band_y0's model-Y top. The two Ø22 pads share a Y
+// centre, so the hull's flat cap between them (well inside the boot's own
+// ±boot_clear_d/2 X-band, which sits nowhere near either pad) tops out at
+// that shared centre plus the pad's own radius — short of the band's own
+// upper limit, which is never actually reached by this profile at all.
+yoke_top_y = p(holes[0])[1] + 11;
+
+// Bore height: just enough to clear the arm-tip stack and the spline boss's
+// own base at the pivot's (x,y) — nothing else of this part reaches that far
+// south, so this is the true local material height, not an overshoot
+// guess. The boss's teeth get their own through-bore inside face_spline()
+// itself (its own eps overshoot), so this bore doesn't need to reach that
+// far either.
+yoke_pivot_bore_h = yoke_t + yoke_standoff + 3 + spline_h + 2 * eps;
+
+assert(pivot_bolt_clear_d < spline_id,
+  str("PIVOT BORE TOO WIDE: exceeds the spline's own bore id — would break ",
+      "into the spline's tooth root instead of just clearing the pivot bolt."));
+
+// See yoke_root_len's own comment: at exactly 2*fillet_vis this rectangle's
+// offset(r)/offset(delta=-r) fillet returns EMPTY for the whole zone
+// H <= 2*fillet_vis, not just exactly at that value (measured — see
+// yoke_root_len's own comment for the sweep), which silently drops the
+// whole arm root and splits the part in two. A strict margin, not just
+// "!=", because 4.01mm (barely over the empty zone) is already a
+// different, thinner-than-intended fillet — this needs real clearance,
+// not a hair.
+assert(yoke_root_len > 2 * fillet_vis + 1,
+  str("ARM ROOT TOO SHORT FOR ITS OWN FILLET: yoke_root_len (", yoke_root_len,
+      ") leaves < 1mm clearance over 2*fillet_vis (", 2 * fillet_vis,
+      ") — the offset() round-trip that fillets it returns EMPTY for the ",
+      "whole zone at or under that value, not just a smaller radius, and ",
+      "the arm root silently vanishes."));
+
+// ⚠ NOTE: there is deliberately no separate "arm root off the band" check
+// here. yoke_riser_y0 (below) is DEFINED as yoke_root_y0, and RISER TOO
+// SHORT's own margin (yoke_riser_y0 must clear yoke_riser_y1, itself
+// band_edge + 2*eps, by a further 2*eps) is strictly tighter than simply
+// requiring yoke_root_y0 to stay on the band — any yoke_root_len big enough
+// to push the root past the band trips RISER TOO SHORT first, every time
+// (confirmed: raising yoke_root_len and separately lowering band_y1 both
+// hit RISER TOO SHORT before any looser "off the band" threshold could
+// fire). A second assert stating the looser condition would never be the
+// one that actually catches anything — dead code that reads as a safety
+// net — so RISER TOO SHORT is the one guard for both failure modes.
+
+module yoke() {
+  difference() {
+    union() {
+      // 1. Bearing face: the truss hull, clipped to the flat band, with
+      //    every edge broken — in-plane (fillet_vis) and top/bottom
+      //    (yoke_ch, via chamfer_slab()).
+      chamfer_slab(yoke_t, yoke_ch)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          intersection() {
+            yoke_profile();
+            yoke_band_2d();
+          }
+
+      // 2. Lower arm: a flush, chamfered root at hole_lone (still on the
+      //    band), then TWO separate, purpose-built hulls down to the pivot
+      //    tip — never one hull spanning the whole run. See the block
+      //    comments above yoke_root_y0 and yoke_riser_y0/y1 for the two
+      //    independent reasons: a single hull(root, tip) both (a)
+      //    measurably pulls the root's own flat top above yoke_t right
+      //    where the lone M5's socket needs to pass (up to 2.5mm of extra
+      //    material at the root's own southern edge, measured — see
+      //    yoke_root_y0's block comment), and (b) leaves the taper sitting
+      //    near z=0 for a long stretch of the danger zone beyond the band
+      //    (measured minimum z=0.65 across the whole
+      //    band-edge-to-display-bottom span — see yoke_riser_y0/y1's block
+      //    comment). Each waypoint below is a thin (2*eps) slice of the arm's
+      //    own rectangular footprint, existing only to pin where one hull
+      //    ends and the next begins — never rendered as a feature in its
+      //    own right.
+      translate([p(hole_lone)[0] - yoke_arm_w/2, yoke_root_y0, 0])
+        chamfer_slab(yoke_t, yoke_ch)
+          offset(r = fillet_vis) offset(delta = -fillet_vis)
+            square([yoke_arm_w, yoke_root_len]);
+
+      // Stage A: root -> riser top. Confined to y in
+      // [yoke_riser_y1-eps, yoke_riser_y0+eps] (a convex hull cannot exceed
+      // its inputs' own y-range) — north of the band edge by construction
+      // (yoke_riser_y1's own guard), so this stage can plunge from z=0 (the
+      // root's own bottom) up to yoke_t+yoke_standoff without any of that
+      // low-z material ever reaching the danger zone.
+      hull() {
+        yoke_wp(yoke_riser_y0, 0, yoke_t);
+        yoke_wp(yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+      }
+
+      // Stage B: riser top -> pivot tip. BOTH inputs already sit at
+      // z >= yoke_t (the riser top by construction above; the tip by
+      // yoke_standoff's own guard) — a convex hull of two inputs that both
+      // satisfy z >= yoke_t is itself entirely z >= yoke_t, no matter how
+      // it interpolates in between, which is the one guarantee this whole
+      // south-of-the-band run (all the way to the tip) actually needs.
+      hull() {
+        yoke_wp(yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+
+        translate(concat(p(pivot_c), [yoke_tip_z0])) {
+          // Bottom rim broken the same way hole_pattern() breaks a hole's
+          // rim: a short lead-in frustum, not a bare disc edge. The top
+          // stays a plain full-diameter disc — it butts directly against
+          // the spline boss above at the same spline_od, so that join is
+          // already internal, with nothing exposed left to break there.
+          // The two are overlapped by `eps`, not stacked edge-to-edge: a
+          // union of two solids meeting at an exactly coincident plane is
+          // the same degenerate case hole_pattern()'s own through-cuts
+          // overshoot to avoid (see the `eps` comment above) — verified
+          // here, not just assumed: without the overlap this split the part
+          // into two disjoint bodies (CGAL `Volumes: 3`, caught by
+          // check_stl.py's single-body check).
+          cylinder(d1 = spline_od - 2*yoke_ch, d2 = spline_od, h = yoke_ch);
+          translate([0, 0, yoke_ch - eps])
+            cylinder(d = spline_od, h = yoke_tip_h - yoke_ch + eps);
+        }
+      }
+
+      // 3. Female spline, centred at p(pivot_c), base flush on the arm tip
+      //    — overlapped by `eps` for the same coincident-face reason as the
+      //    frustum/disc join just above (also verified by the same
+      //    Volumes:3 split before this line existed).
+      translate(concat(p(pivot_c), [yoke_t + yoke_standoff - eps]))
+        face_spline(male = false, base = 3);
+    }
+
+    hole_pattern(yoke_t);
+    boot_slot(yoke_t, slot_reach, yoke_top_y);
+    // Pivot bolt clearance — same diameter Task 4's arm must drill.
+    translate(concat(p(pivot_c), [-eps]))
+      cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_h);
+    // Lead-in where that bore first breaks through real material (the
+    // tip-stack frustum's own bottom face, the lowest solid surface at the
+    // pivot's own x,y) — same "chamfer, not a bare edge" treatment as
+    // hole_pattern()'s M5 countersinks, sized the same way (+1mm over
+    // 0.5mm). Everywhere else the bore only ever widens into the spline's
+    // own already-open Ø(spline_id) bore, so this one lead-in is the only
+    // edge this cut actually exposes.
+    translate(concat(p(pivot_c), [yoke_tip_z0]))
+      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+  }
+}
+
 // Still to come, each in its own task, landing here and wired into the
 // selector below:
-//   module yoke()      — bearing face + pivot + spline (DESIGN — YOKE above)
 //   module arm()       — standoff linking the yoke's pivot to the cowl
 //   module cap()       — clamp cap that closes the yoke around the bar
 //   module cowl()      — rear cowl: brow, reveal, boot clearance, fillets
@@ -429,8 +905,12 @@ part = "gauge";
 // existed to prevent (verified, 2026-09-13). Keeping the guard as the chain's
 // own `else` collapses it to ONE artifact, so there is nothing left to drift.
 //
-// To add a part: add its `else if` above this line. The guard needs no edit.
+// To add a part: add its `else if` above this line. The guard needs no edit
+// to keep WORKING — but its message below is a plain hardcoded string, not
+// derived from the chain, so update that string in the same commit or the
+// hint text (only the hint, not the logic) goes stale.
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
+else if (part == "yoke") yoke();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke"));
