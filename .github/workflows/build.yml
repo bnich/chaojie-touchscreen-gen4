@@ -14,18 +14,31 @@ jobs:
       - name: Install OpenSCAD
         run: |
           sudo apt-get update
-          sudo apt-get install -y openscad
+          sudo apt-get install -y openscad xvfb
 
-      - name: Export every part and verify bounding boxes
-        run: ./tools/build.sh
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
 
-      # A failed assert() only surfaces as a non-zero exit on a SOLID export
-      # format, which build.sh uses. This step additionally proves the guards
-      # are live rather than decorative: break one on purpose, expect failure.
-      - name: Prove the design assertions actually fire
+      # These are not optional extras. The mesh and volume checks are what catch
+      # a hollow part — the spline teeth once shipped at 44 mm^3 against the
+      # ~915 they needed, while passing watertight, zero boundary edges, zero
+      # non-manifold edges and one connected component. All four are surface
+      # topology; none of them test fill.
+      - name: Install mesh tooling
+        run: pip install trimesh manifold3d numpy scipy networkx
+
+      - name: Export every part, verify meshes, volumes and clearances
+        run: xvfb-run -a ./tools/build.sh
+
+      # Prove the design assertions are live rather than decorative: break one
+      # on purpose and require the failure. Checked via a SOLID export, because
+      # a failed assert() exits 0 for tree formats and for PNG.
+      - name: Prove the assertions actually fire
         run: |
           set +e
-          openscad -o /dev/null --export-format=asciistl \
-            -D 'm5_len=16' src/gen4-display-mount.scad 2>&1 | grep -q "BOLT BOTTOMS OUT"
-          test $? -eq 0 || { echo "assertion did not fire — guards are not working"; exit 1; }
+          out=$(xvfb-run -a openscad -o /dev/null --export-format=asciistl \
+                -D 'm5_len=16' src/gen4-display-mount.scad 2>&1)
+          echo "$out" | grep -q "BOLT BOTTOMS OUT" \
+            || { echo "assertion did not fire — the guards are not working"; exit 1; }
           echo "assertion guards confirmed live"

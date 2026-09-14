@@ -8,6 +8,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 SRC=src/gen4-display-mount.scad
+
+# ⚠ Do NOT hardcode an interpreter path. This script broke CI on 2026-09-14 by
+#   calling /root/.venvs/revv1/bin/python, which exists on one developer machine
+#   and nowhere else. Prefer an explicit override, then the local venv if it is
+#   there, then whatever python3 is on PATH.
+PY="${REVV1_PY:-}"
+if [ -z "$PY" ] && [ -x /root/.venvs/revv1/bin/python ]; then PY=/root/.venvs/revv1/bin/python; fi
+if [ -z "$PY" ]; then PY=python3; fi
+if ! "$PY" -c "import trimesh" 2>/dev/null; then
+  echo "MESH CHECKS UNAVAILABLE: $PY has no trimesh." >&2
+  echo "  pip install trimesh manifold3d numpy scipy networkx  (or set REVV1_PY)" >&2
+  echo "  Refusing to pass silently — these checks are what catch a hollow part." >&2
+  exit 1
+fi
 mkdir -p stl renders
 
 # parts implemented so far; extend as they land
@@ -28,7 +42,7 @@ done
 # expectation, or you are not testing fill at all.
 echo "--- spline fill (guards against a hollow tooth set)"
 openscad -o /tmp/_disc_only.stl -D 'part="spline_test"' -D 'teeth=false' "$SRC" >/dev/null 2>&1
-/root/.venvs/revv1/bin/python - <<'PYEOF'
+"$PY" - <<'PYEOF'
 import trimesh, math, sys
 disc = trimesh.load("/tmp/_disc_only.stl", process=True).volume
 full = trimesh.load("stl/gen4-spline-test.stl", process=True).volume
@@ -66,7 +80,7 @@ rm -f /tmp/_disc_only.stl
 # spline case above) — the tolerance band (0.6-1.0) is wide enough to absorb
 # (a)+(b) without being wide enough to pass a genuinely hollow part.
 echo "--- cowl fill (guards against a hollow shell)"
-/root/.venvs/revv1/bin/python - <<'PYEOF'
+"$PY" - <<'PYEOF'
 import trimesh, math, sys
 
 disp_w, disp_h, disp_corner_r = 159.99, 93.98, 9.0
@@ -121,7 +135,7 @@ PYEOF
 # arm, and the display itself with a different boolean engine (manifold3d,
 # not CGAL) on the actual exported meshes, positioned into one shared frame.
 echo "--- cowl clearance vs yoke / arm / display"
-/root/.venvs/revv1/bin/python - <<'PYEOF'
+"$PY" - <<'PYEOF'
 import math, os, sys, trimesh
 
 # cowl and yoke are both built directly in the shared display-rear-face
@@ -167,7 +181,7 @@ ok = True
 for label, path in [("yoke", "stl/gen4-yoke.stl"),
                      ("arm (positioned)", "stl/_check_arm_positioned.stl"),
                      ("display stand-in", "stl/_check_display_stub.stl")]:
-    rc = os.system(f"/root/.venvs/revv1/bin/python ../tools/check_fit.py intersect "
+    rc = os.system(f"{sys.executable} tools/check_fit.py intersect "
                     f"stl/gen4-cowl.stl {path}")
     status = "CLEAR" if rc == 0 else "FAILED"
     print(f"    cowl vs {label}: {status}")
