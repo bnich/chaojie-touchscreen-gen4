@@ -57,6 +57,13 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   past the glass).
 
 ### Fixed
+- **`brow_test`'s stated print orientation was the worst of the six.** `docs/printing.md` said
+  "flat", which measures **8874 mm²** of steeply down-facing area; standing it on its riser with the
+  visor pointing up — the same way up as the cowl, since the visor narrows all the way to its tip —
+  measures **0 mm²**. Corrected. The same section's blanket claim that "every part prints unsupported
+  in the orientation above" had never been measured either; it is now replaced with the per-part
+  numbers, the caveat that a horizontal bore's ceiling is not a support problem, and an explicit ⬜ on
+  the `yoke`/`arm` spline orientations that have been open since the tilt-axis fix.
 - **`tools/render-gen4.sh` could not run in a clean clone.** It still carried the two hazards
   `tools/build.sh` was fixed for on 2026-09-14: a hardcoded `/root/.venvs/revv1/bin/python`, and a
   `../tools/check_fit.py` path pointing **outside the repository**. Now resolves the interpreter the

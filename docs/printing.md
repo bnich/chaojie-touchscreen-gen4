@@ -26,7 +26,7 @@ left/right variant.
 | `arm` (×2) | bore-side down (clamp bore horizontal) | ⬜ **Spline orientation open**, same reason as the yoke above — the male spline's own disc is no longer a flat face at either Z extreme (it faces sideways, arm-local Y), so there is no single flip that puts it flat on the bed alongside the bore. Not slicer-checked |
 | `cap` (×2) | bore-side down | no supports needed |
 | `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up. Its bottom opening is now one symmetric notch (⭐ 2026-09-15) wide enough for both legs and both clamps |
-| `brow_test` | flat | throwaway |
+| `brow_test` | **riser end on the bed, visor pointing up** — the same way up as the cowl | measured **0 mm² of overhang**, because the visor narrows all the way up. ⚠️ This used to say "flat", which is the **worst of the six axis-aligned orientations** (8874 mm² of steeply down-facing area). Footprint 161 × 22.5 mm, 67 mm tall — use a brim |
 
 ## Settings
 
@@ -41,10 +41,43 @@ Nothing exotic. Starting points:
   the part is oriented wrong.
 - **Brim** helps on ASA, which likes to lift.
 
-## No supports by design
+## Supports — what was actually measured
 
-Every part is shaped so it prints unsupported in the orientation above. If you re-orient something
-for your own reasons, check the overhangs yourself — the model does not enforce print orientation.
+⚠️ **This section used to claim every part prints unsupported. That was never measured.** What follows
+is, for each part in its orientation above, the area of surface facing steeply downward (under 45° to
+the bed) and not sitting on the plate, plus how high the highest such face sits.
+
+| Part | Down-facing area | Highest | What it is |
+|---|---|---|---|
+| `gauge` | **0 mm²** | — | genuinely support-free |
+| `brow_test` | **0 mm²** | — | genuinely support-free, in the corrected orientation above |
+| `cap` | 703 mm² (13 %) | 17 mm | mostly the clamp bore's own ceiling |
+| `yoke` | 2644 mm² (12 %) | 36 mm | the two sideways spline pucks |
+| `arm` | 1276 mm² (13 %) | 62 mm | the bore's ceiling, plus the sideways male spline disc |
+| `cowl` | 4902 mm² (7 %) | 89 mm | the shell's internal ribs and bosses |
+
+⚠️ **Down-facing is not the same as needs-support.** A horizontal bore's ceiling is self-supporting to
+about 45° and then a short bridge, which is why the bore dominates the `arm`/`cap` figures without
+being a problem. **Put each part through your own slicer and look at the support preview** before
+committing filament — the table above is a geometric screen, not a slicer.
+
+⬜ **Not slicer-checked.** The `yoke` and `arm` spline orientations have been an open question since
+the tilt-axis fix (each pivot boss now faces sideways, so its Ø40 disc stands with its face vertical).
+These numbers say the question is real rather than theoretical.
+
+**Why the orientations are what they are**, where the answer is not "least overhang":
+- `cowl` — **surface finish wins.** Laying it on its side nearly halves the down-facing area
+  (2843 mm²) but puts the one surface people actually see against a support interface. Not worth it.
+- `yoke` — **the bearing face must be flat and dimensionally true**; it is what seats against the
+  display. Standing the yoke on edge is marginally better on overhang (1993 mm²) and worse at the job.
+- `arm` — the six axis orientations span 1093–1413 mm², i.e. nothing to choose between them on
+  overhang. ⬜ **Layer direction is the better argument and has not been settled:** bore-side down puts
+  the layers perpendicular to the bending load in the clamp→spline rib, which is the weakest way to
+  stack them. If a printed arm ever fails, it will fail there, and re-orienting is the first thing to
+  try.
+
+If you re-orient something for your own reasons, check the overhangs yourself — the model does not
+enforce print orientation.
 
 ## Print in this order
 
@@ -53,7 +86,7 @@ The order exists to catch mistakes cheaply. Do not skip ahead.
 1. **`gauge`** — proves the hole pattern, the slot, the flat-band assumption and your bolt length
    against the real display. Short print. Everything downstream inherits that hole pattern, so if it
    is wrong you want to know now.
-2. **`brow_test`** — the riser and visor alone. Confirms the visor's reach and shape against the
+2. **`brow_test`** — the riser and visor alone; 0 mm² of overhang, no supports. Confirms the visor's reach and shape against the
    real screen, seated normally, before the cowl's shape is committed. ⚠️ Check both things it can get
    wrong: that it shades the screen in sun, **and** that it does not cut into the top of the screen
    from your own riding position (`docs/design-notes.md`, "The underside is flat on purpose").
