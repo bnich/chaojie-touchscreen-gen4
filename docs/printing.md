@@ -18,8 +18,8 @@ the display for a minute and then thrown away. It never sees load, heat or UV.
 | Part | Orientation | Why |
 |---|---|---|
 | `gauge` | flat, as exported | trivial |
-| `yoke` | **bearing face on the bed** | that face must be flat and dimensionally true — it is what seats against the display. Face-spline teeth print as vertical walls, which is fine: all 48 engage at once so per-tooth load is tiny |
-| `arm` | spline face down | same reasoning; keeps the clamp bore's axis horizontal |
+| `yoke` | **bearing face on the bed** | that face must be flat and dimensionally true — it is what seats against the display. ⬜ **Spline orientation open** since the tilt-joint fix (`docs/design-notes.md`'s DM-6): the pivot boss now faces sideways (its axis parallel to the bar), so with the bearing face down the Ø40 disc stands with its face vertical, a puck hanging off the lower arm, rather than the flat "teeth as vertical walls off a horizontal disc" of the pre-fix geometry. Whether that needs support has not been slicer-checked |
+| `arm` | bore-side down (clamp bore horizontal) | ⬜ **Spline orientation open**, same reason as the yoke above — the male spline's own disc is no longer a flat face at either Z extreme (it faces sideways, arm-local Y), so there is no single flip that puts it flat on the bed alongside the bore. Not slicer-checked |
 | `cap` | bore-side down | no supports needed |
 | `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up |
 | `brow_test` | flat | throwaway |

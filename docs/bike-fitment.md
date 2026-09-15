@@ -67,13 +67,32 @@ The lowest workable position is the default:
 |---|---|
 | `arm_len` — pivot centre above the bar centreline | **45** |
 | `arm_crank` — inboard offset so the screen centres on the bike | **32.5** |
-| Display **bottom** edge above the bar's top surface | **35** |
-| Display **top** edge above the bar's top surface | 129 |
+| Display **bottom** edge above the bar's top surface | **52** |
+| Display **top** edge above the bar's top surface | 146 |
 
 `arm_crank` exists because the clamp cannot sit on the centreline — the bracket is there. The
 bracket's right face is 22.5 mm out, and an 18 mm clamp centred 10 mm beyond it puts the clamp centre
 32.5 mm off centre. The arm carries that back so the screen is centred on the bike rather than
 sitting to one side of it.
+
+⚠️ **The screen sits 17 mm higher than the owner's original 35 mm choice** — a consequence of fixing
+the tilt joint (`docs/design-notes.md`'s DM-6 re-derivation), not a separate decision. With the spline
+axis parallel to the bar, the pivot's own clearance from the display (≥22 mm, so the Ø40 disc clears
+the housing) and the clamp's own clearance from the pivot (`arm_len`≥45 mm, so the same disc clears
+the clamp body) now stack on the **same** axis — in the old (defective) design they fell on two
+different axes and could overlap for free. 52 mm is the floor for this joint's current, axis-aligned
+clearance strategy; a **diagonal** placement (trading some Y separation for Z, angling the pivot back
+behind the display instead of straight below it) could claw some of that back, but re-deriving and
+re-verifying it was out of scope for this fix — flagged here rather than silently shipped as "35 mm,
+unchanged."
+
+⚠️ **Height above the bar is no longer independent of tilt.** A joint that actually pitches means
+tilting the display swings its centroid — and so the whole assembly's reach — up/down and back/forth
+around the pivot axis. The 52/146 mm figures above are for the **reference pose**
+(`arm_seat_theta = 0` in `src/gen4-display-mount.scad`, the pose every render and clearance check in
+this repo uses); a different one of the 48 valid 7.5° click positions puts the screen at a measurably
+different height. This is expected — it is the whole point of a working tilt joint — not a modelling
+error.
 
 ---
 

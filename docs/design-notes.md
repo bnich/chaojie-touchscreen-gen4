@@ -1,33 +1,5 @@
 # Design constraints
 
-> # ⛔ KNOWN DESIGN DEFECT — the tilt joint does not tilt
->
-> **Found 2026-09-14, during assembly rendering. Not yet fixed. Read this before printing the yoke
-> or the arm.**
->
-> The face spline's axis is the **display's own normal**. The handlebar runs across the bike,
-> perpendicular to it. So rotating the joint **rolls the screen in its own plane** — it does not
-> pitch it up or down. For a tilt joint the spline axis has to be **parallel to the bar**, so the
-> screen swings about the same line the bar runs along.
->
-> The consequence is that the adjustment this mount advertises is the wrong axis, and the display's
-> attitude relative to the rider is set only by how far the clamp is rotated on the bar.
->
-> **How it happened, because it is instructive:** the pivot was placed on the yoke's *rear face* to
-> clear the lone M5's head (DM-6). A boss on the rear face necessarily has its axis along the
-> normal. The constraint that drove the position was real and correctly derived; nobody asked what
-> *direction* the resulting axis pointed.
->
-> **Why nothing caught it.** The spline's own meshing was proven, the parts are watertight and
-> solid, every clearance pair reports CLEAR, and 14 assertions fire correctly. All of that verifies
-> that the joint *works*. None of it asks whether the joint does the *job*. It took looking at an
-> assembly render.
->
-> **The fix is not a parameter change.** The spline boss has to face sideways, which re-opens DM-6's
-> head-clearance reasoning from scratch and changes both the yoke's lower arm and the arm's geometry.
-> That is an owner decision, not a tweak.
-
-
 Read this before changing the model. Several things that look like arbitrary choices are forced by
 the display, and "simplifying" them produces a part that renders fine and fails on the bike.
 
@@ -48,18 +20,39 @@ cut off the lone M5. Up the centreline is the only direction that works.
 This is why the yoke is a **Y-truss** — two arms down from the upper bolts meeting at a pad on the
 lone bolt — rather than a plate.
 
-### 2. The pivot sits below the housing
+### 2. The pivot sits well below the housing — DM-6, re-derived for a bar-parallel axis
 
-The natural place for a tilt pivot is just below the cable boot, around Y 72. **It does not work.** A
-Ø40 toothed face there spans Y 52 … 92, which puts **the lone M5's head underneath the toothed face**
-— the bolt could never be fitted or removed. The head is Ø8.5 and reaches Y 68.0, so any toothed face
-must start below that.
+**The tilt joint's axis has to be parallel to the handlebar**, not the display's own normal. A hinge
+that swings the display's pitch (up/down, the whole point of a tilt mount) needs its axis running
+across the bike, the same line the bar lies on — turning about the display's own normal instead just
+rolls the screen in its own plane, which is a defect this design carried and fixed once (2026-09-14),
+documented here so the reasoning survives, not the mistake.
 
-The pivot is therefore at **(80, 100)**, 6 mm below the display's bottom edge, clearing the bolt head
-by 12 mm. The yoke's lower arm passes over the display's bottom chamfer without touching it.
+That axis choice changes what "the pivot sits below the housing" has to defend against. With the axis
+along the bar (model X), the toothed face's own reach along its axis is only a few millimetres — it
+sits deep inside the display's own width, with no sideways offset to hide behind the way a normal-axis
+boss could hide behind standoff depth. Clearance for both the display and the lone M5 has to come from
+where the disc sits in the OTHER two axes (Y and Z), not from how far it stands off in Z.
 
-The cost is that the display's centre of mass sits **53 mm** above the pivot. On a ~0.4 kg display
-that is ~0.21 N·m static — the spline is enormously oversized for it, which is the point.
+**The display.** The disc is a Ø40 circle in the Y-Z plane. Placed entirely below the display's own
+bottom edge in Y (rather than split across a Y/Z diagonal — simpler to build and reason about, and it
+costs nothing since there is open air below the display anyway), it needs no Z clearance to avoid the
+housing at all: its bottom edge is at model Y −70, 23 mm below the display's own bottom edge, so even
+at the disc's nearest point (Y −50) there is a full 3 mm of air past the housing.
+
+**The lone M5.** Automatically satisfied by the same margin — the bolt sits at model Y −16.3, deep
+inside the display's own footprint, far closer to the display than to a pivot 70 mm below it. The
+connecting arm's own root/riser staging (unchanged by this rework) still keeps material flush at the
+bearing-plate thickness until it is past the bolt's own Y, exactly as before, so nothing between the
+plate and the disc can shadow the bolt either.
+
+**The cost, twice over.** The display's centre of mass now sits **70 mm** above the pivot (was 53 mm)
+— on a ~0.4 kg display, ~0.34 N·m static, still comfortably inside what this spline is sized for. And
+because both clearances (display, and the clamp-vs-spline check in `docs/bike-fitment.md`) now stack
+on the SAME axis instead of two independent ones, the display sits **52 mm** above the bar's top
+surface at the reference (theta=0) pose instead of the originally-chosen 35 mm — see
+`docs/bike-fitment.md` for the full number and why a more compact, diagonal-clearance placement was
+not pursued.
 
 ---
 

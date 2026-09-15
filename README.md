@@ -14,17 +14,6 @@ integrated sun brow — because on a moped the back of this display faces the wo
 
 ---
 
-## ⛔ Do not print the yoke or arm yet
-
-**The tilt joint does not tilt.** The spline's axis is the display's own normal while the handlebar
-runs perpendicular to it, so the joint rolls the screen in its own plane instead of pitching it. The
-mount's headline adjustment is on the wrong axis. Everything else — the hole pattern, the tapered
-clamp bore, the spline's own meshing, mesh integrity — is verified and sound; the joint's
-*orientation* is not. Fixing it means re-deriving the pivot placement, not changing a number.
-Details in [docs/design-notes.md](docs/design-notes.md).
-
-**The fit gauge is unaffected and still worth printing.**
-
 ## 🚧 Status
 
 **Work in progress — not yet printable end to end.** Built and verified so far:
@@ -33,7 +22,7 @@ Details in [docs/design-notes.md](docs/design-notes.md).
 |---|---|
 | **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
 | Face spline (tilt joint) | ✅ done — meshing proven geometrically |
-| **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl) |
+| **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl). Pivot axis runs parallel to the handlebar (`docs/design-notes.md`'s DM-6), so the joint pitches the display instead of rolling it — proven with the pitch acceptance test in `tools/build.sh` |
 | **Arm + clamp cap** | ✅ done — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`); male spline proven against the yoke's female with `tools/check_fit.py` |
 | **Cowl + sun brow** | ✅ done — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). Clears the yoke, the arm and the display itself (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export); ⬜ **the 19mm brow projection is unproven — print `brow_test` and hold it against the screen on the bike before trusting it** |
 | **Assembly renders + print plate** | ✅ done — [`renders/`](renders). Every part positioned as it actually assembles (display and handlebar shown as stand-ins, not printed), plus the 4 printable parts laid out flat in their print orientation. Clearance re-proven with `tools/check_fit.py` on the positioned exports |

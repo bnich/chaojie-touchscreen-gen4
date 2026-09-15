@@ -105,7 +105,45 @@ yoke_t     = 8;                 // bearing-face thickness. Paired with m5_len: 1
                                 // in bending than 5 mm (stiffness goes as t^3),
                                 // which is worth having under a 5" screen on a
                                 // hub-motor moped.
-pivot_c    = [ 80, 100 ];       // ⚠ DM-6. Below the housing. See assertion.
+// ⚠ DM-6, RE-DERIVED 2026-09-14 for a spline axis along X (parallel to the
+// bar) instead of Z (the display's own normal) — see docs/design-notes.md
+// for why the OLD (Z-axis) pivot placement was a defect, not a tunable
+// number. With the axis along X the boss's own reach along the axis (a few
+// mm, `yoke_tip_h+base_female+spline_h`) sits deep inside the display's own
+// X-envelope ([-disp_w/2,disp_w/2]) — there is no X-offset to hide behind
+// the way the old design hid behind yoke_standoff's Z-offset. Clearance has
+// to come entirely from where the disc sits in Y and Z (see the ⚠ CLEAR THE
+// DISPLAY assertion below, right after `holes`/`disp_h` are in scope).
+pivot_x = p(hole_lone)[0];   // == 0: the boss grows from the display's own
+                    // vertical centreline — the same X the Y-truss already
+                    // terminates on below hole_lone (hole_lone sits there
+                    // too, by construction). The boss's own small thickness
+                    // pulls the ASSEMBLED joint a few mm off dead-centre
+                    // (its material occupies pivot_x .. pivot_x+yoke_tip_h+
+                    // base_female+spline_h, not a point) — accepted rather
+                    // than compensated in arm_crank; see docs/design-notes.md.
+pivot_y = -70;      // ⚠ CLEAR THE DISPLAY: the minimum that satisfies the
+                    // assert below is -(disp_h/2+spline_od/2+pivot_clear) =
+                    // -68.99 — -70 clears it with just over 1mm to spare, a
+                    // deliberate round number rather than shaving the margin
+                    // to the last hundredth. The disc's own near edge
+                    // (pivot_y+spline_od/2) must clear the display's bottom
+                    // edge (-disp_h/2) by pivot_clear, and that automatically
+                    // clears the lone M5's head too (its head sits at doc Y
+                    // 63.28, deep inside the display's own footprint — far
+                    // closer to the display than to a pivot this far below
+                    // it). Re-checked by a SECOND, independent assert against
+                    // the M5 head directly, not just inferred.
+// pivot_z is defined further down (DESIGN — YOKE, by yoke_standoff) —
+// OpenSCAD resolves a plain top-level variable in file order, unlike a
+// function/module name (hoisted), so it cannot be defined here: it needs
+// yoke_standoff, which itself is not in scope yet at this point in the
+// file. Kept out of this block rather than reordering yoke_standoff up to
+// here — yoke_standoff belongs with the rest of [DESIGN — YOKE], not pulled
+// out of it for one dependency.
+pivot_clear = 2;    // margin held past the display's own bottom edge and
+                    // (independently) past the lone M5's head — same
+                    // magnitude as the old DM-6's own "+2".
 pivot_bolt_clear_d = 6.4;       // M6 clearance through both spline halves —
                                 // named here (not just typed inline at the
                                 // yoke's own bore) so Task 4's arm drills the
@@ -234,6 +272,13 @@ base_male   = 3;    // this male spline's own base thickness. Free choice per
                     // seating check below is against numbers already proven,
                     // not a fresh, unverified pair.
 
+// Separates the two flat backs once mated — face_spline()'s own ORIENTATION
+// seating formula (docs/spline-verification.md §4/§6). A top-level name
+// (not a local inside arm_seat(), where this used to live) because the
+// cowl's own opening sizing (⚠ DM-6 rework) also needs it, to place its
+// right edge against the seated clamp's real reach.
+spline_seat = base_male + base_female + spline_h;
+
 $fn = 96;
 
 /* ===================== ASSERTIONS =========================
@@ -245,8 +290,44 @@ assert(m5_len - yoke_t <= m5_depth - 1,
 assert(m5_len - yoke_t >= 3,
   "TOO LITTLE ENGAGEMENT: need >=3mm of thread engaged.");
 
-assert(pivot_c[1] - spline_od/2 >= hole_lone[1] + m5_head_d/2 + 2,
-  "PIVOT TOO HIGH: the toothed face covers the lone M5's head. See DM-6.");
+// ⚠ DM-6, RE-DERIVED for the X-axis spline (2026-09-14). Two INDEPENDENT
+// clearances, not one — with the old Z-axis boss, standing off in Z cleared
+// BOTH the display and the M5 head at once (see docs/design-notes.md's
+// history of the defect). With the axis along X the boss no longer has a
+// Z-offset to hide behind, so each has to be checked in the plane that
+// actually matters now — Y and Z, not X.
+//
+// 1. THE DISC MUST CLEAR THE DISPLAY. The display occupies
+// y ∈ [-disp_h/2, disp_h/2], z ∈ [-disp_d, 0], and the boss's own X-extent
+// (a few mm around pivot_x) sits deep inside the display's X-envelope, so
+// there is no X separation to rely on — only Y, or Z, or both. This model
+// clears it in Y alone (pivot_y is far enough below the display that the
+// WHOLE disc, at any Z, has y < -disp_h/2): simpler to build and to reason
+// about than relying on a diagonal Y+Z margin, and it costs nothing since
+// there is open air below the display anyway.
+assert(pivot_y + spline_od/2 <= -disp_h/2 - pivot_clear,
+  str("PIVOT DISC FOULS THE DISPLAY: the Ø", spline_od, " disc's near edge (y=",
+      pivot_y + spline_od/2, ") must clear the display's own bottom edge (y=",
+      -disp_h/2, ") by pivot_clear (", pivot_clear, "mm) — Y is the only ",
+      "separation available now the axis no longer stands off in Z."));
+
+// 2. THE DISC (AND THE ARM CARRYING IT) MUST CLEAR THE LONE M5's HEAD.
+// Automatically satisfied once (1) holds — the M5 sits at doc Y 63.28, deep
+// inside the display's own footprint, so anything already clear of the
+// display's bottom edge by pivot_clear is clear of the M5 by a much wider
+// margin — but re-checked directly and independently, the same way the old
+// DM-6 assert checked it directly rather than trusting it to follow from
+// something else. This is also the constraint the connecting arm's own
+// root/riser staging (yoke_root_y0/yoke_riser_y0/y1 below) exists to
+// satisfy for the material BETWEEN the plate and the disc, not just the
+// disc itself: that staging keeps the arm flush at <=yoke_t until it is
+// past this same Y, exactly as it did for the old design.
+assert(pivot_y + spline_od/2 < p(hole_lone)[1] - m5_head_d/2 - pivot_clear,
+  str("PIVOT TOO HIGH: re-derived DM-6 — the disc's near edge (y=",
+      pivot_y + spline_od/2, ") must clear the lone M5's head (y=",
+      p(hole_lone)[1], ", Ø", m5_head_d, ") by pivot_clear (", pivot_clear,
+      "mm), or the connecting arm's own reach toward the disc would have to ",
+      "cross back over the bolt."));
 
 assert(hole_lone[1] > boot_c[1],
   "ORIENTATION FLIPPED: the lone hole is BELOW the pair on this display.");
@@ -732,6 +813,17 @@ module face_spline(male, base) {
 // (thin) rather than tied to yoke_t the way gauge_t is tied to it below.
 module spline_test() { face_spline(male = true, base = 3); }
 
+/* ---- PART: pivot_puck_test -----------------------------------------
+   Throwaway print of the pivot puck alone (lead-in frustum + full disc,
+   yoke_pivot_puck() — see the block comment above pivot_x/pivot_y/pivot_z)
+   — proves it is a SOLID disc, not a hollow shell, before it is buried
+   inside the yoke where a repeat of the historical hollow-tooth defect
+   (docs/spline-verification.md §8: 44mm³ of teeth against a ~915mm³
+   expectation, every mesh-health check green anyway) would be far more
+   expensive to notice. tools/build.sh checks its volume against the exact
+   closed-form frustum+disc formula. */
+module pivot_puck_test() { yoke_pivot_puck(); }
+
 /* ---- PART: gauge ---------------------------------------------
    Bearing footprint only: a rounded rectangle spanning the bolt pads,
    trimmed to the flat band so it also proves the band assumption. Nothing
@@ -823,43 +915,75 @@ yoke_root_len =  6;    // how far (+Y, toward the plate) the arm's flush root
                        // yoke_root_len should expect to land on whichever
                        // fires first, not necessarily the one they were
                        // aiming at.
-yoke_standoff =  8;    // how far the arm's pivot end lifts clear (+Z, away
+yoke_standoff = 12;    // how far the connecting arm lifts clear (+Z, away
                        // from the display) of the chamfer beyond the flat
-                       // band. Outside band_y0/band_y1 the shell is no
-                       // longer flat (see the FLAT BAND header comment); a
-                       // rib still sitting at yoke_t there risks bearing on
-                       // that chamfer instead of standing off it. ⚠ MUST
-                       // clear yoke_t — asserted below, on yoke_tip_z0 (the
-                       // tip's own lowest point, yoke_t+yoke_standoff-
-                       // yoke_tip_h). Criterion 1 needs THAT point, not just
-                       // the tip's top, at or above yoke_t, or the tip
-                       // itself sits back down in the danger zone regardless
-                       // of how the taper between root and tip is built.
-                       // ⚠ THIS GUARD WAS MISSING FOR A WHILE — a version of
-                       // this comment claimed it existed under a name
-                       // (`yoke_riser_z1`) that was never actually written
-                       // anywhere in the file. Swept yoke_standoff = 1, 3, 5
-                       // against that unguarded state: all three rendered
-                       // clean (exit 0, no assertion) and produced CGAL
-                       // `Volumes: 3` — the exact two-body split this whole
-                       // waypoint construction exists to prevent, passing
-                       // silently. 6 and 7 already gave `Volumes: 2`, so the
-                       // real threshold for THIS assert is yoke_standoff >=
-                       // 6; the assert below is the guard that comment
-                       // always should have had.
-                       // ⚠ 6 clears this assert but now fails a DIFFERENT,
-                       // independent one: taper_wp()'s own fillet-margin
-                       // guard, on the second riser waypoint's height
-                       // (yoke_standoff-1). At standoff=6 that height is
-                       // exactly 5, inside the same 1mm safety margin
+                       // band, on its way past it. Outside band_y0/band_y1
+                       // the shell is no longer flat (see the FLAT BAND
+                       // header comment); a rib still sitting at yoke_t there
+                       // risks bearing on that chamfer instead of standing
+                       // off it. UNCHANGED by the ⚠ DM-6 rework (2026-09-14)
+                       // — this concern was always about the material
+                       // BETWEEN the plate and the pivot, never about which
+                       // way the spline axis itself points, and pivot_z is
+                       // still defined as yoke_t+yoke_standoff for exactly
+                       // this reason.
+                       // ⚠ THIS GUARD USED TO LIVE HERE, ON THE TIP'S OWN Z:
+                       // before the rework the tip climbed FURTHER in Z
+                       // beyond this standoff (yoke_tip_h more), and a
+                       // dedicated assert (long since folded into the
+                       // ⚠ DM-6 rework — see pivot_z's own block comment)
+                       // checked that its own lowest point still cleared
+                       // yoke_t. The rework's tip no longer climbs in Z at
+                       // all (it sits AT pivot_z for its whole reach — see
+                       // yoke_tip_h's own comment) so that guard's JOB is now
+                       // done structurally, by construction, rather than by
+                       // a runtime check: there is no longer a "tip's own
+                       // lowest point" that could independently sit too low.
+                       // Swept historically (pre-rework) at yoke_standoff =
+                       // 1, 3, 5: all rendered clean with NO assertion and
+                       // produced CGAL `Volumes: 3` (a real two-body split);
+                       // 6 and 7 already gave `Volumes: 2` — kept here as the
+                       // reason 8 (not something smaller) is still the
+                       // chosen value, even though the specific guard that
+                       // number used to satisfy no longer exists as such.
+                       // ⚠ 6 clears that historical threshold but fails a
+                       // DIFFERENT, independent one: taper_wp()'s own
+                       // fillet-margin guard, on the second riser waypoint's
+                       // height (yoke_standoff-1). At standoff=6 that height
+                       // is exactly 5, inside the same 1mm safety margin
                        // yoke_root_len's own comment explains (empty only
                        // for H<=4, but a bare 4.01 is already "a different,
                        // thinner-than-intended fillet" — this file asks for
                        // real clearance everywhere, not just clearing the
-                       // exact math boundary). So the PRACTICAL minimum,
-                       // once both guards are satisfied together, is
-                       // yoke_standoff >= 7, not 6 — 8 was already chosen
-                       // with margin over either number.
+                       // exact math boundary). So the PRACTICAL minimum is
+                       // yoke_standoff >= 7, not 6.
+                       // ⚠ RAISED FROM 8 TO 12, ⚠ DM-6 rework (2026-09-14):
+                       // the pivot puck (yoke_pivot_puck()) is now a Ø40
+                       // disc CENTRED at z=pivot_z=yoke_t+yoke_standoff, not
+                       // a flat face sitting ON TOP of it — so its own
+                       // lowest point reaches z=pivot_z-spline_od/2, not
+                       // yoke_t+yoke_standoff itself. At the old value (8)
+                       // that lowest point was pivot_z-20 = 16-20 = -4: BELOW
+                       // the bearing face's own z=0, i.e. below the print
+                       // bed in the "bearing face on the bed" orientation
+                       // docs/printing.md specifies (caught by checking the
+                       // exported bbox, min z=-4.00, not by any assert — see
+                       // the new PIVOT BELOW THE BED guard just below). 12
+                       // brings the puck's own lowest point to EXACTLY
+                       // z=0 (pivot_z-20=20-20=0): touching, not clipping.
+// ⚠ DM-6: the pivot's Z coordinate — see the block comment above
+// pivot_x/pivot_y/pivot_clear (near yoke_t) for the full re-derivation.
+// Defined here rather than there because it needs yoke_standoff, which is
+// not yet in scope at that earlier point in the file.
+pivot_z = yoke_t + yoke_standoff;
+
+assert(pivot_z - spline_od/2 >= 0,
+  str("PIVOT BELOW THE BED: the pivot puck's own lowest point (z=",
+      pivot_z - spline_od/2, ") sits below the bearing face's own z=0 — in ",
+      "the \"bearing face on the bed\" print orientation (docs/printing.md) ",
+      "that is below the bed, not merely unsupported. Needs yoke_standoff >= ",
+      spline_od/2 - yoke_t, "."));
+
 yoke_ch       =  1;    // 45 deg edge-break on every slab-like face this part
                        // adds (the plate, the arm's root) — same purpose as
                        // hole_pattern()'s own countersink, carried to this
@@ -935,41 +1059,22 @@ assert(p(hole_lone)[1] - m5_socket_d/2 > yoke_root_y0 + eps,
       ", not clear of the confined-tilt boundary at yoke_root_y0+eps=",
       yoke_root_y0 + eps, "."));
 
-// The arm-tip stack's own local height (frustum lead-in + disc, see the
-// union below) and, from that, the z its LOWEST point sits at — the value
-// yoke_standoff's own header comment promises is guarded. Named so that
-// promise is checkable instead of a dangling forward-reference.
+// The pivot puck's own reach along ITS OWN axis before the spline boss
+// proper begins (frustum lead-in + disc, see yoke_pivot_puck() below) —
+// same value and role it had before the ⚠ DM-6 rework, just along a
+// different axis. It no longer needs a "yoke_tip_z0 / TIP TOO LOW" guard:
+// with the axis along X (not Z) the puck sits AT z=pivot_z for its ENTIRE
+// reach instead of climbing through a Z-range of its own — Stage A below is
+// the only thing that still climbs in Z, and it already arrives at the full
+// pivot_z (=yoke_t+yoke_standoff) before Stage B (constant Z) or Stage C
+// (the transition into the puck) ever run, so there is no "does the tip's
+// own lowest point sit below yoke_t" question left to guard.
 //
 // Why 6, not 4 or 8: it needs to clear yoke_ch (1) by enough that the
-// frustum lead-in reads as a small chamfer on the puck, not a taper that
-// IS the puck — at 6 the lead-in is 1/6 (~17%) of the total, in the same
+// frustum lead-in reads as a small chamfer on the puck, not a taper that IS
+// the puck — at 6 the lead-in is 1/6 (~17%) of the total, in the same
 // ballpark as hole_pattern()'s own countersink-to-hole-depth proportion.
-// It also needs to stay small enough that this puck doesn't itself need
-// the yoke_riser_y0/y1 treatment: hulling its own top (the flat disc the
-// spline boss lands on) against its own bottom (the frustum) spans only
-// yoke_tip_h itself, not the tens-of-mm y-run that caused the leaks above,
-// so a plain two-point stack (no waypoint confinement) is still safe here.
-// The real design cost of raising it is direct, not free: yoke_tip_z0's
-// own formula below means yoke_standoff must be >= yoke_tip_h (asserted),
-// so a taller puck only ever demands a taller standoff for no shape
-// benefit — 6 is the smallest value that still satisfies the proportion
-// argument above.
 yoke_tip_h  = 6;
-yoke_tip_z0 = yoke_t + yoke_standoff - yoke_tip_h;
-
-// yoke_standoff's own guard: the tip's lowest point must sit AT OR ABOVE
-// yoke_t, or the tip itself — not merely the taper reaching it — sits back
-// down in the danger zone. This is the assert a stale comment once claimed
-// existed under the name `yoke_riser_z1` (it did not; grep found only the
-// comment). Swept, not just derived: yoke_standoff = 1, 3, 5 all rendered
-// clean with NO assertion and produced CGAL `Volumes: 3` (a real two-body
-// split) before this existed; 6 and 7 already gave `Volumes: 2`, matching
-// the >= yoke_t threshold below exactly.
-assert(yoke_tip_z0 >= yoke_t,
-  str("TIP TOO LOW: yoke_tip_z0 (", yoke_tip_z0, ") sits below yoke_t (",
-      yoke_t, ") — the tip end of the arm is back in the danger zone no ",
-      "matter how the taper leading to it is built. Needs yoke_standoff >= ",
-      yoke_tip_h, " (currently ", yoke_standoff, ")."));
 
 // ⚠ A SECOND, INDEPENDENT convex-hull leak, in the OTHER direction. The
 // root-to-tip taper also needs criterion 1 (never bears on the chamfer
@@ -1016,6 +1121,38 @@ assert(yoke_riser_y1 < yoke_riser_y0 - 2 * eps,
       "thickness is accounted for — the root barely clears the band with ",
       "too little margin left for this riser to fit ahead of it."));
 
+// ⚠ A THIRD stage, new with the ⚠ DM-6 rework: from the riser top down to
+// where the round pivot puck begins (yoke_pivot_puck() below). This is a
+// DIFFERENT hull() hazard from the two above — the puck's own Z bounding
+// box ([pivot_z-spline_od/2, pivot_z+spline_od/2], a full spline_od tall,
+// since the puck is a round boss of that diameter) is far taller than the
+// riser's own [yoke_t+1, yoke_t+yoke_standoff] band, so a hull() straight
+// from the riser to the puck is bounded (per hull()'s own "confined to its
+// inputs' own range" rule, the same rule yoke_riser_y0/y1 already lean on)
+// by the UNION of both Z-ranges throughout the whole Y-span between them —
+// exactly the kind of leak yoke_riser_y0/y1 exists to prevent, just on Z
+// instead of the fillet/socket failure those two guard.
+//
+// The fix here is not another Z-confined waypoint (there is no safe
+// intermediate Z to confine to — the puck's own Z-range is what it is) but
+// a Y-confined one: yoke_approach_y sits at (just past) the display's own
+// bottom edge, and EVERYTHING south of it — the puck included — is already
+// past the display's entire housing, where a Z-range leak has nothing left
+// to collide with (no chamfer, no shell, nothing). So Stage B (below, a
+// second riser-top waypoint slid down to yoke_approach_y at the SAME
+// [yoke_t+1, yoke_t+yoke_standoff] Z-range as the first — a pure extension,
+// leak-proof for the same reason Stage A's own "both inputs already sit at
+// z>=yoke_t" argument is) carries the safe, narrow-Z material all the way
+// to the display's edge, and only Stage C (riser-top-at-yoke_approach_y to
+// the puck) — the one hull() that actually spans the mismatched Z-ranges —
+// runs entirely south of it, where the leak is real but harmless.
+yoke_approach_y = -disp_h/2 - 1;
+assert(pivot_y + spline_od/2 <= yoke_approach_y,
+  str("PIVOT TOO CLOSE: the puck's own near edge (y=", pivot_y + spline_od/2,
+      ") must reach at least as far as yoke_approach_y (", yoke_approach_y,
+      ") or Stage C's hull() would span back across the display's own edge, ",
+      "into territory where its Z-range leak is NOT harmless."));
+
 // Convex hull of the three bolt pads. "Y-truss" (task goal) describes the
 // STRUCTURAL layout — three legs off a shared span — not the outline: this
 // stays a plain hull(), so it is provably convex (chamfer_slab() below
@@ -1055,7 +1192,10 @@ yoke_top_y = p(holes[0])[1] + yoke_pad_d/2;
 // guess. The boss's teeth get their own through-bore inside face_spline()
 // itself (its own eps overshoot), so this bore doesn't need to reach that
 // far either.
-yoke_pivot_bore_h = yoke_t + yoke_standoff + 3 + spline_h + 2 * eps;
+// Bore LENGTH along X now (the bore runs along the pivot's own axis, ⚠ DM-6
+// re-derived) — just enough to clear the puck plus a little of the spline's
+// own base; the teeth get their own through-bore inside face_spline() itself.
+yoke_pivot_bore_len = yoke_tip_h + base_female + spline_h + 2 * eps;
 
 assert(pivot_bolt_clear_d < spline_id,
   str("PIVOT BORE TOO WIDE: exceeds the spline's own bore id — would break ",
@@ -1147,57 +1287,83 @@ module yoke() {
         taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
       }
 
-      // Stage B: riser top -> pivot tip. BOTH inputs already sit at
-      // z >= yoke_t (the riser top by construction above; the tip by
-      // yoke_standoff's own guard) — a convex hull of two inputs that both
-      // satisfy z >= yoke_t is itself entirely z >= yoke_t, no matter how
-      // it interpolates in between, which is the one guarantee this whole
-      // south-of-the-band run (all the way to the tip) actually needs.
+      // Stage B: riser top -> the display's own edge, at the SAME Z-range
+      // as Stage A's own ending waypoint — a pure Y-extension, not a taper,
+      // so it cannot leak in Z (both inputs share one Z-range) the same way
+      // Stage A cannot. See yoke_approach_y's own block comment for why this
+      // stage stops exactly there and hands off to Stage C rather than
+      // reaching the puck directly.
       hull() {
         taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
-
-        translate(concat(p(pivot_c), [yoke_tip_z0])) {
-          // Bottom rim broken the same way hole_pattern() breaks a hole's
-          // rim: a short lead-in frustum, not a bare disc edge. The top
-          // stays a plain full-diameter disc — it butts directly against
-          // the spline boss above at the same spline_od, so that join is
-          // already internal, with nothing exposed left to break there.
-          // The two are overlapped by `eps`, not stacked edge-to-edge: a
-          // union of two solids meeting at an exactly coincident plane is
-          // the same degenerate case hole_pattern()'s own through-cuts
-          // overshoot to avoid (see the `eps` comment above) — verified
-          // here, not just assumed: without the overlap this split the part
-          // into two disjoint bodies (CGAL `Volumes: 3`, caught by
-          // check_stl.py's single-body check).
-          cylinder(d1 = spline_od - 2*yoke_ch, d2 = spline_od, h = yoke_ch);
-          translate([0, 0, yoke_ch - eps])
-            cylinder(d = spline_od, h = yoke_tip_h - yoke_ch + eps);
-        }
+        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
       }
 
-      // 3. Female spline, centred at p(pivot_c), base flush on the arm tip
-      //    — overlapped by `eps` for the same coincident-face reason as the
-      //    frustum/disc join just above (also verified by the same
-      //    Volumes:3 split before this line existed).
-      translate(concat(p(pivot_c), [yoke_t + yoke_standoff - eps]))
-        face_spline(male = false, base = base_female);
+      // Stage C: the display's own edge -> the pivot puck. The one hull()
+      // that spans mismatched Z-ranges (rectangle vs the full-diameter round
+      // puck) — safe ONLY because yoke_approach_y's own assert keeps this
+      // ENTIRE stage at y <= yoke_approach_y, past the display's own
+      // housing, where a Z leak has nothing to touch (see yoke_approach_y's
+      // block comment for the full argument).
+      hull() {
+        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
+        yoke_pivot_puck();
+      }
+
+      // 3. Female spline. ⚠ DM-6 RE-DERIVED: the axis is now X (parallel to
+      // the bar), not Z (the display's own normal) — see the block comment
+      // above pivot_x/pivot_y/pivot_z. rotate([0,90,0]) turns face_spline()'s
+      // own local Z (its growth axis) into world +X; its local X and Y (the
+      // disc's own plane) land in world -Z and Y respectively, so the disc
+      // ends up in the Y-Z plane as required. Root at x=pivot_x+yoke_tip_h,
+      // overlapped by `eps` back into the puck for the same coincident-face
+      // reason as every other stacked-solid join in this file (verified by
+      // the same Volumes:3 split before this line existed).
+      translate([pivot_x + yoke_tip_h - eps, pivot_y, pivot_z])
+        rotate([0, 90, 0])
+          face_spline(male = false, base = base_female);
     }
 
     hole_pattern(yoke_t);
     boot_slot(yoke_t, slot_reach, yoke_top_y);
-    // Pivot bolt clearance — same diameter Task 4's arm must drill.
-    translate(concat(p(pivot_c), [-eps]))
-      cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_h);
+    // Pivot bolt clearance, along X now — same diameter Task 4's arm must
+    // drill, same axis its own bore now runs along too.
+    translate([pivot_x - eps, pivot_y, pivot_z])
+      rotate([0, 90, 0])
+        cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_len);
     // Lead-in where that bore first breaks through real material (the
-    // tip-stack frustum's own bottom face, the lowest solid surface at the
-    // pivot's own x,y) — same "chamfer, not a bare edge" treatment as
-    // hole_pattern()'s M5 countersinks, sized the same way (+1mm over
-    // 0.5mm). Everywhere else the bore only ever widens into the spline's
-    // own already-open Ø(spline_id) bore, so this one lead-in is the only
-    // edge this cut actually exposes.
-    translate(concat(p(pivot_c), [yoke_tip_z0]))
-      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+    // puck's own root face, the end AWAY from the spline — the near face as
+    // the bolt is offered up from that side) — same "chamfer, not a bare
+    // edge" treatment as hole_pattern()'s M5 countersinks, sized the same
+    // way (+1mm over 0.5mm). Everywhere else the bore only ever widens into
+    // the spline's own already-open Ø(spline_id) bore, so this one lead-in
+    // is the only edge this cut actually exposes.
+    translate([pivot_x, pivot_y, pivot_z])
+      rotate([0, 90, 0])
+        cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
   }
+}
+
+// The pivot puck: frustum lead-in + full disc, built exactly as before (the
+// same two cylinder() calls, same yoke_ch/yoke_tip_h reasoning) but wrapped
+// in rotate([0,90,0]) so it grows along world X from (pivot_x,pivot_y,
+// pivot_z) instead of along Z from a flat plate — see the block comment
+// above pivot_x/pivot_y/pivot_z for why the axis changed and
+// docs/design-notes.md for the full history of the defect this fixes.
+module yoke_pivot_puck() {
+  translate([pivot_x, pivot_y, pivot_z])
+    rotate([0, 90, 0]) {
+      // Bottom rim broken the same way hole_pattern() breaks a hole's rim: a
+      // short lead-in frustum, not a bare disc edge. The top stays a plain
+      // full-diameter disc — it butts directly against the spline boss
+      // beyond it at the same spline_od, so that join is already internal,
+      // with nothing exposed left to break there. The two are overlapped by
+      // `eps`, not stacked edge-to-edge, for the same coincident-face reason
+      // as everywhere else in this file (verified by the same Volumes:3
+      // split before this line existed).
+      cylinder(d1 = spline_od - 2*yoke_ch, d2 = spline_od, h = yoke_ch);
+      translate([0, 0, yoke_ch - eps])
+        cylinder(d = spline_od, h = yoke_tip_h - yoke_ch + eps);
+    }
 }
 
 /* ---- DESIGN — ARM assertions -----------------------------------
@@ -1210,6 +1376,19 @@ assert(clamp_x0 + clamp_w <= bar_run,
       "mm) reaches past bar_run (", bar_run, "mm) — beyond that the bar ",
       "curves upward and is unusable. See docs/bike-fitment.md."));
 
+// ⚠ SAME FORMULA, DIFFERENT (STRONGER) REASON since the ⚠ DM-6 rework. Before,
+// the spline's disc lay in the local X-Y plane (axis Z) while the clamp's own
+// round cross-section lies in the local X-Z plane — different planes, so
+// this was a deliberately CONSERVATIVE stand-in ("as if" the two were
+// coplanar circles) for the worst case (no crank). Now the male spline's
+// disc ALSO lies in the local X-Z plane (axis Y, ⚠ DM-6 re-derived — see the
+// block comment above pivot_x/pivot_y/pivot_z), so at the worst-case Y (no
+// crank, straight above the clamp) the two really ARE two coplanar circles
+// in the exact same X-Z plane: the clamp (radius clamp_od/2, centred on the
+// bore axis) and the spline (radius spline_od/2, centred at Z=arm_len). The
+// same inequality that used to be a conservative bound is now an EXACT
+// clearance condition for that worst case, which is why the number (45mm)
+// did not need to change even though the axis did.
 assert(arm_len - spline_od/2 - clamp_od/2 >= 1,
   str("SPLINE FOULS CLAMP: arm_len (", arm_len, ") leaves only ",
       arm_len - spline_od/2 - clamp_od/2, "mm between the Ø", spline_od,
@@ -1249,6 +1428,18 @@ assert(clamp_od - bore_at(clamp_x0) >= 4,
   str("CLAMP WALL TOO THIN: clamp_od (", clamp_od, ") over the bore's own ",
       "largest diameter (", bore_at(clamp_x0), ") leaves < 2mm of radial ",
       "wall at the clamp's tightest point."));
+
+// The joint's own "which of 48 clock positions" choice — arm_seat() (near
+// the assembly modules below) reads this, not a hard-coded local. A plain
+// top-level parameter, not baked into arm_seat() itself, so
+// `openscad -D arm_seat_theta=7.5 ...` can render or export the assembly at
+// a different mesh-exact tilt WITHOUT editing the file — exactly what
+// tools/build.sh's own pitch-test needs to do repeatably. Must stay an
+// exact multiple of 360/spline_n (7.5°) to re-mesh the teeth exactly rather
+// than approximately (docs/spline-verification.md's meshing proof only
+// holds there); 0 is the reference pose every OTHER render/check in this
+// file uses.
+arm_seat_theta = 0;
 
 arm_pivot_y = clamp_x0 + clamp_w/2 - arm_crank;   // pivot centre, along the
                     // bar axis (this part's own Y) — the clamp's own
@@ -1422,8 +1613,8 @@ module arm() {
       // PRINTABILITY. ⚠ NOT BENCH-VERIFIED — this is an angle calculation,
       // not a confirmed print; flag it if a real print disagrees. A single
       // hull from the root (Y=10, z~19-27) straight to the tip
-      // (Y=arm_pivot_y=-22.5, z~34-42) rises only ~15-23mm over a 32.5mm
-      // run — 55-65° off vertical by either measure, past the ~45° a
+      // (Y≈arm_pivot_y+arm_tip_h=-16.5, z~34-42) rises only ~15-23mm over a
+      // ~26.5mm run — still well past the ~45° a
       // standard slicer prints unsupported — and the shape is neither a
       // steep member (self-supporting) nor a true bridge (anchored at the
       // SAME height at both ends), which is the shallow overhang FDM
@@ -1440,34 +1631,52 @@ module arm() {
         taper_wp(0, arm_w, clamp_x0 + clamp_w/2, clamp_od/2 - 5, clamp_od/2 + 3);
         taper_wp(0, arm_w, clamp_x0 + clamp_w/2, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
       }
+      // ⚠ DM-6 RE-DERIVED: ending waypoint moves from arm_pivot_y to
+      // arm_pivot_y+arm_tip_h — the puck now grows along Y (below), so its
+      // own ROOT (the end that unions into this bridge) sits arm_tip_h
+      // further from the clamp than the spline's own start, not AT
+      // arm_pivot_y the way the old Z-growing puck's root was.
       hull() {
         taper_wp(0, arm_w, clamp_x0 + clamp_w/2, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
-        taper_wp(0, arm_w, arm_pivot_y, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        taper_wp(0, arm_w, arm_pivot_y + arm_tip_h, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
       }
 
-      // Tip puck (lead-in frustum + disc), then the male spline, flush
-      // back at arm_len — same construction and same eps overlaps as the
-      // yoke's own tip stack just above.
-      translate([0, arm_pivot_y, arm_len - arm_tip_h]) {
-        cylinder(d1 = spline_od - 2 * arm_ch, d2 = spline_od, h = arm_ch);
-        translate([0, 0, arm_ch - eps])
-          cylinder(d = spline_od, h = arm_tip_h - arm_ch + eps);
-      }
-      translate([0, arm_pivot_y, arm_len - eps])
-        face_spline(male = true, base = base_male);
+      // Tip puck (lead-in frustum + disc), then the male spline. ⚠ DM-6
+      // RE-DERIVED: the axis is now Y, not Z (see the block comment above
+      // pivot_x/pivot_y/pivot_z on the yoke side) — rotate([90,0,0]) turns
+      // this stack's own local Z (its growth axis) into local -Y, so it
+      // grows from the puck's root at (0,arm_pivot_y+arm_tip_h,arm_len) down
+      // to the spline's own flat back at (0,arm_pivot_y,arm_len) instead of
+      // climbing in Z off a flat plate. arm_seat() below is what lines this
+      // local-Y axis up with the bar (and the yoke's own pivot axis) once
+      // seated. Same construction and same eps overlaps as before.
+      translate([0, arm_pivot_y + arm_tip_h, arm_len])
+        rotate([90, 0, 0]) {
+          cylinder(d1 = spline_od - 2 * arm_ch, d2 = spline_od, h = arm_ch);
+          translate([0, 0, arm_ch - eps])
+            cylinder(d = spline_od, h = arm_tip_h - arm_ch + eps);
+        }
+      translate([0, arm_pivot_y, arm_len])
+        rotate([90, 0, 0])
+          face_spline(male = true, base = base_male);
     }
 
     bar_bore();
     ear_cuts(arm_side = true);
 
-    // Pivot bolt clearance through the tip puck only — face_spline() cuts
-    // its own Ø(spline_id) bore through the spline itself, so this covers
-    // just the puck below it; the rib further down is never needlessly
-    // drilled.
-    translate([0, arm_pivot_y, arm_len - arm_tip_h - eps])
-      cylinder(d = pivot_bolt_clear_d, h = arm_tip_h + base_male + spline_h + 2 * eps);
-    translate([0, arm_pivot_y, arm_len - arm_tip_h])
-      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+    // Pivot bolt clearance through the tip puck only, along Y now — same
+    // reach as before (arm_tip_h + base_male + spline_h, plus 2*eps
+    // overshoot), just along the axis that changed. face_spline() cuts its
+    // own Ø(spline_id) bore through the spline itself, so this covers just
+    // the puck; the rib further down is never needlessly drilled.
+    translate([0, arm_pivot_y + arm_tip_h + eps, arm_len])
+      rotate([90, 0, 0])
+        cylinder(d = pivot_bolt_clear_d, h = arm_tip_h + base_male + spline_h + 2 * eps);
+    // Lead-in at the bore's entry face (the puck's own root, away from the
+    // spline — the bolt is offered up from that side).
+    translate([0, arm_pivot_y + arm_tip_h, arm_len])
+      rotate([90, 0, 0])
+        cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
   }
 }
 
@@ -1720,13 +1929,40 @@ module cowl_brow_inner() {
 // the loom beside it — not two notches (criterion). Open to the display's
 // own bottom edge and well beyond (the arm and loom both continue past the
 // cowl's own footprint, down to the pivot and the handlebar).
-open_w  = 50;    // half of this, 25, clears the Ø40 spline puck's own R20 by
-                 // 5mm — checked for real against the exported yoke/arm
-                 // STLs with check_fit.py (see the report), not trusted from
-                 // this arithmetic alone: a hull()-based taper does not
-                 // interpolate its cross-section linearly along its own
-                 // axis, per taper_wp()'s own block comment on exactly this
-                 // failure mode.
+//
+// ⚠ ASYMMETRIC, since the ⚠ DM-6 rework (2026-09-14) — it was a symmetric
+// ±open_w/2 before. With the spline axis now X (parallel to the bar, not
+// the display's own normal — see the block comment above
+// pivot_x/pivot_y/pivot_z), the ARM's own clamp reaches out along shared X
+// instead of into depth, and — unlike the old pivot, which sat dead centre
+// — it reaches ONE-SIDED, by a real, fixed amount that does not depend on
+// arm_seat_theta (rotating about the hinge axis cannot move anything ALONG
+// that axis): every point on the arm ends up at shared X =
+// (pivot_x + yoke_tip_h + spline_seat - arm_pivot_y) + its own local Y, and
+// the clamp's own local Y never goes negative, so the clamp only ever sits
+// at MORE positive shared X than the pivot, never less. A symmetric opening
+// sized to cover that reach on both sides would cut away nearly twice the
+// material actually needed.
+arm_seat_x_reach = pivot_x + yoke_tip_h + spline_seat - arm_pivot_y + clamp_x0 + clamp_w;
+                 // the clamp tube's own far (Y=clamp_x0+clamp_w) end,
+                 // mapped through arm_seat()'s own (theta-independent-in-X)
+                 // formula — not eyeballed. Matches the seated arm/cap's
+                 // own measured bbox max (49.206) to ~0.1mm; the small gap
+                 // is the ear boss/chamfer detail this plain-tube formula
+                 // does not model (task report has the positioned-export
+                 // numbers this was checked against).
+open_x0 = -(spline_od/2 + 5);      // left edge: clears the female disc's
+                 // own reach near shared X=pivot_x≈0 by 5mm — same value the
+                 // old symmetric open_w (=50, half=25) gave, kept unchanged
+                 // since nothing on this side of the opening moved.
+open_x1 = arm_seat_x_reach + 6;    // right edge: clears the seated clamp
+                 // with 6mm to spare over the ~0.1mm formula-vs-measured
+                 // gap above — checked for real against the exported
+                 // yoke/arm/cap STLs with check_fit.py (see the report),
+                 // not trusted from this arithmetic alone: a hull()-based
+                 // taper does not interpolate its cross-section linearly
+                 // along its own axis, per taper_wp()'s own block comment
+                 // on exactly this failure mode.
 open_y0 = -22;   // upper edge of the opening, model Y. Below this (more
                  // negative than yoke_riser_y1=-24.41) the yoke's Stage-B
                  // taper actually widens toward the pivot and needs the
@@ -1737,9 +1973,14 @@ open_y0 = -22;   // upper edge of the opening, model Y. Below this (more
                  // 2.41mm (an intentional small margin, not the boundary
                  // itself) and clear of the M3 boss band below it.
 
-assert(open_w/2 > spline_od/2 + 3,
-  str("OPENING TOO NARROW: open_w/2 (", open_w/2, ") clears the Ø", spline_od,
-      " spline puck by only ", open_w/2 - spline_od/2, "mm — needs >3mm."));
+assert(-open_x0 > spline_od/2 + 3,
+  str("OPENING TOO NARROW ON THE LEFT: -open_x0 (", -open_x0, ") clears the ",
+      "Ø", spline_od, " spline puck by only ", -open_x0 - spline_od/2,
+      "mm — needs >3mm."));
+assert(open_x1 > arm_seat_x_reach + 1,
+  str("OPENING TOO NARROW ON THE RIGHT: open_x1 (", open_x1, ") clears the ",
+      "seated clamp's own reach (", arm_seat_x_reach, ") by only ",
+      open_x1 - arm_seat_x_reach, "mm — needs >1mm."));
 
 // Rounded on its two upper (visible, re-entrant) corners at fillet_vis —
 // "every other visible edge". The two lower corners run off the model into
@@ -1751,8 +1992,8 @@ module cowl_opening_cut() {
     linear_extrude(cowl_depth + 2)
       offset(r = fillet_vis) offset(delta = -fillet_vis)
         polygon([
-          [-open_w/2, open_y0], [ open_w/2, open_y0],
-          [ open_w/2,    -200], [-open_w/2,    -200] ]);
+          [open_x0, open_y0], [open_x1, open_y0],
+          [open_x1,    -200], [open_x0,    -200] ]);
 }
 
 // ---- Top retention hook: a small interference tab, not a structural joint
@@ -1790,11 +2031,13 @@ m3_boss_d   = 8;     // (8-3.4)/2 = 2.3mm of ASA on every side of the
                      // own margin conventions elsewhere in this file.
 m3_boss_len = 14;    // real bearing length for the screw, not just a thin
                      // washer-plate.
-m3_x   = open_w/2 + m3_boss_d/2 + 2;   // boss centre, X — just outside the
-                     // opening's own flanking wall, with 2mm of solid wall
-                     // between the opening's cut edge and the boss's own
-                     // bore, so the M3 clearance hole never breaks into the
-                     // opening.
+// ⚠ ONE PER SIDE OF THE (now asymmetric, ⚠ DM-6 rework) OPENING, not a
+// symmetric ±m3_x any more — each boss sits just outside ITS OWN edge of
+// open_x0/open_x1, with 2mm of solid wall between the opening's cut edge
+// and the boss's own bore, so the M3 clearance hole never breaks into the
+// opening on either side.
+m3_x_left  = open_x0 - m3_boss_d/2 - 2;
+m3_x_right = open_x1 + m3_boss_d/2 + 2;
 m3_y0  = open_y0 - 2;                  // boss's lower (open, driver-access)
                      // end — reachable from the same opening the arm and
                      // loom already use.
@@ -1820,10 +2063,14 @@ m3_z_max = m3_z_c + m3_boss_d/2 + fillet_in;   // ⚠ the boss's TRUE highest
                      // cowl_depth, not by trusting the assert below alone —
                      // the assert used m3_boss_d/2 only and passed anyway).
 
-assert(m3_x + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
-  str("M3 BOSS TOO FAR OUT: boss edge at x=", m3_x + m3_boss_d/2,
+assert(m3_x_right + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
+  str("M3 BOSS TOO FAR OUT (right): boss edge at x=", m3_x_right + m3_boss_d/2,
       " comes within 2mm of the shell's own R", fillet_out, " outer chamfer ",
       "(starts at x=", disp_w/2 + reveal - fillet_out, ")."));
+assert(-m3_x_left + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
+  str("M3 BOSS TOO FAR OUT (left): boss edge at x=", m3_x_left - m3_boss_d/2,
+      " comes within 2mm of the shell's own R", fillet_out, " outer chamfer ",
+      "(starts at x=", -(disp_w/2 + reveal - fillet_out), ")."));
 assert(m3_z_max < cowl_depth - 0.5,
   str("M3 BOSS BREAKS THE VISIBLE SURFACE: the root fillet reaches z=",
       m3_z_max, ", within 0.5mm of the back cap's own outer face at z=",
@@ -1832,7 +2079,7 @@ assert(m3_z_max < cowl_depth - 0.5,
       "0.1mm bump on the visible surface passes silently (found once)."));
 
 module cowl_m3_boss() {
-  for (sx = [-1, 1])
+  for (x = [m3_x_left, m3_x_right])
     // A short root fillet (fillet_in, R1 — "internal fillets at wall-to-rib
     // junctions") where the boss meets the back cap: hull() a slightly
     // larger, shorter disc at the cap end against the plain-diameter run —
@@ -1840,18 +2087,18 @@ module cowl_m3_boss() {
     // hand here because the boss's own axis (Y) isn't chamfer_slab's native
     // Z, and this fillet is one-sided (only the cap end, not the open end).
     hull() {
-      translate([sx * m3_x, m3_y0, m3_z_c]) rotate([-90, 0, 0])
+      translate([x, m3_y0, m3_z_c]) rotate([-90, 0, 0])
         cylinder(d = m3_boss_d, h = m3_boss_len - fillet_in);
-      translate([sx * m3_x, m3_y1 - eps, m3_z_c]) rotate([-90, 0, 0])
+      translate([x, m3_y1 - eps, m3_z_c]) rotate([-90, 0, 0])
         cylinder(d = m3_boss_d + 2*fillet_in, h = eps);
     }
 }
 
 module cowl_m3_cut() {
-  for (sx = [-1, 1]) {
-    translate([sx * m3_x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
+  for (x = [m3_x_left, m3_x_right]) {
+    translate([x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
       cylinder(d = m3_clear_d, h = m3_boss_len + 2*eps);
-    translate([sx * m3_x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
+    translate([x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
       cylinder(d1 = m3_lead_d, d2 = m3_clear_d, h = 0.5);
   }
 }
@@ -1965,80 +2212,186 @@ module bracket_stub() {
 }
 
 // Seats the arm assembly's male spline against the yoke's female spline.
-// The rotate([180,0,0]) at its core is tools/build.sh's own
-// "cowl clearance vs yoke/arm/display" block's exact transform, reused
-// verbatim (Task 6's own instruction), not re-derived: a 180 deg turn
-// about the arm's own local X axis mirrors the arm's Y (bar axis) and Z
-// (its own "up off the bore" axis) at once, landing the male spline's own
-// flat back (arm Z=arm_len) `base_female+base_male+spline_h` behind the
-// yoke's female flat back (shared-frame Z=yoke_t+yoke_standoff) --
-// face_spline()'s own ORIENTATION seating formula
-// (docs/spline-verification.md §4/§6). This ALONE satisfies the one hard
-// requirement a correct seating has (arm-local Z -> shared -Z,
-// marker-rod-verified) -- but it is not the only rotation that does: it
-// also happens to send arm-local Y (the bar's own axis) to shared Y, which
-// reads as the handlebar running the same direction as the DISPLAY's own
-// up/down axis instead of its left/right one. arm_seat() below adds
-// exactly the remaining freedom (a further turn about the now-shared Z
-// axis, the only freedom a correct seating has left) to fix that, without
-// touching this hard requirement. Everything built in the arm's local
-// frame -- arm(), cap(), bar_stub(), bracket_stub() -- passes through
-// arm_seat() to land in the shared display-rear-face frame assembly()
-// otherwise builds in directly.
-// ⚠ CORRECTED 2026-09-14 (coordinator review, caught by looking at a
-// render -- see the task report). The original version below (theta always
-// 0) mismeshed nothing -- the spline itself was, and remains, correctly
-// seated (rotate([180,0,0]) alone already satisfies the ONE hard
-// requirement, arm-local Z -> shared -Z; ground-truth-verified with marker
-// rods, not just algebra: a 10mm rod on arm-local +Z lands running along
-// shared -Z). But rotate([180,0,0]) alone is only ONE of 48 equally valid
-// "clock positions" the spline allows (any multiple of 360/spline_n = 7.5
-// deg about the now-shared Z axis re-meshes exactly, since the teeth's
-// relative phase comes from face_spline()'s own `male` parameter, not from
-// this outer rotation) -- and theta=0 happens to be a bad one to render:
-// it puts the bar's own axis (arm-local Y, marker-rod-verified to run
-// along shared -Y under rotate([180,0,0]) alone) parallel to the DISPLAY's
-// own up/down axis instead of its left/right one, so the assembly render
-// showed the handlebar running vertically. theta=90 (=12 steps, still an
-// exact multiple of 7.5) turns that same already-correct seating to put
-// the bar along shared X instead, matching the display's own "X =
-// left/right" convention.
-//   theta CANNOT, at any value, bring arm_len ("pivot centre above the BAR
-// CENTRELINE", docs/bike-fitment.md -- an arm-local Z quantity) onto
-// shared Y instead of shared Z: a rotation about the (already Z-aligned)
-// spline axis only ever rotates the OTHER two axes within the plane
-// perpendicular to it, by the closed form of SO(3)'s stabiliser of a fixed
-// axis -- every valid seating rotation is Rz(theta) composed with this
-// same R0, for SOME theta, and none of them moves what R0 already sends to
-// Z. So arm_len necessarily lands along shared Z in this render, at every
-// mechanically valid theta -- see the task report for what that implies
-// (and does not imply) about the pivot's own placement, which is Task 2/3
-// design, not this module's to silently re-decide.
+// ⚠ REWRITTEN 2026-09-14 for the ⚠ DM-6 rework: the spline axis is now the
+// arm's own local Y (the bar axis — see the block comment above
+// pivot_x/pivot_y/pivot_z on the yoke side for why), not local Z, so the
+// OLD base rotation (rotate([180,0,0]), chosen to satisfy "local Z -> shared
+// -Z") no longer applies to anything — that requirement doesn't exist any
+// more. This is rebuilt from the actual new requirement instead of patched.
+//
+// THE ONE HARD REQUIREMENT: local Y (the bar axis, and now the spline axis)
+// must map to shared X (the bar's own length direction in the shared frame
+// — the display's own left/right, since the display/yoke/cowl already share
+// that frame with no transform of their own). Any rotation R0 satisfying
+// R0·ŷ = x̂ works for the spline mesh; which ONE of those (they differ by a
+// further spin about x̂, i.e. about the bar's own axis) also puts "up along
+// the rising rib" (local Z, the direction the rib climbs FROM the clamp
+// TOWARD the pivot) somewhere sensible is a second, independent choice,
+// resolved the same way this file resolves every rotation choice: computed
+// with matrices, not eyeballed against a render (a render cannot show a
+// mismeshed spline OR a wrong "up" any more than it can show interference —
+// docs/spline-verification.md and this file's own header trap list). The
+// CORRECT sign is R0·ẑ = +ŷ: "toward the pivot" (local +Z) must map to
+// "toward the display's own top edge" (shared +Y, since the display's top
+// edge sits at model Y=+disp_h/2 — the display is fixed in this frame, so
+// its own +Y really is "up"), not shared −Y.
+// ⚠ CORRECTED 2026-09-14, same day as first written — an earlier version of
+// this block solved R0·ẑ=−ŷ instead, by wrongly carrying over the OLD
+// (pre-rework) design's own "arm-local Z -> shared -Z is real up" sign
+// convention. That convention was never a physical fact to begin with: the
+// OLD shared Z was the display's DEPTH axis, so "which sign is up" there was
+// only ever a camera-framing choice for a render, not a claim about the
+// display's own top/bottom edges — carrying its SIGN over to a genuinely
+// different, physically-meaningful axis (shared Y, the display's real
+// vertical) was the error. Caught by the render-gen4.sh clearance checks
+// (not by the pitch test, which only cares about RELATIVE rotation and
+// cannot tell "up" from "down"): with the wrong sign, the cap ended up
+// ABOVE the pivot instead of below it, driving it back up into the display
+// and yoke — display vs positioned cap/arm and yoke/cowl vs positioned cap
+// all reported real (400-2700mm³) interference. Re-solved for R0·ŷ=x̂ AND
+// R0·ẑ=+ŷ by searching compositions of 90°-multiple OpenSCAD rotate() calls:
+// the simplest solution is `rotate([0, -90, -90])`, which gives
+// local (x,y,z) -> shared (y, z, x) — verified by matrix multiplication,
+// not asserted; re-verified against the ACTUAL exported geometry (the same
+// render-gen4.sh clearance checks, now all CLEAR) before this was trusted.
+//
+// THE FREE CHOICE: `arm_seat_theta` (a top-level parameter, defined near
+// arm_pivot_y — not a local here, so a build tool can override it with a
+// plain `-D`), a further rotation about the now-shared X axis (the
+// bar/spline axis) — this is the SAME "which of 48 valid clock positions"
+// freedom the old design's own `theta` had, just carried out about a
+// different final axis. Unlike the old design, this rotation now changes
+// something real: it is the display's PITCH, the whole reason for this
+// rework — tools/build.sh's own pitch test renders/positions the assembly
+// at several values of it and checks exactly that. It must still be an
+// exact multiple of 360/spline_n (7.5°) to re-mesh the teeth exactly rather
+// than approximately — anything else collides the spline
+// (docs/spline-verification.md's own meshing proof only holds at those
+// angles). 0 is the reference pose used for every OTHER render, bbox and
+// clearance check in this file; docs/bike-fitment.md documents that a
+// WORKING tilt joint means the screen's height above the bar is a function
+// of this angle, not a fixed fact independent of it the way the old
+// (broken) design's roll axis left it.
+//
+// THE ROTATION MUST PIVOT ABOUT THE PIVOT LINE, NOT THE ORIGIN. `theta`
+// has to fix the physical hinge axis (shared y=pivot_y, z=pivot_z, running
+// along shared X) in place while it turns everything else — a bare
+// rotate([theta,0,0]) instead rotates about the axis THROUGH THE ORIGIN
+// (y=0,z=0). Composing translate -> rotate(theta) -> rotate(R0) with a
+// theta-DEPENDENT translate (below) is the closed form of "rotate about the
+// pivot line, then land the male spline's own flat-back centre exactly
+// spline_seat beyond the FEMALE's own flat back" (⚠ NOT on top of the
+// female's flat back — that was a bug caught by the rod-probe method
+// mandated in docs/spline-verification.md §4, not by any render or
+// check_fit.py run: those never boolean yoke against arm at all, precisely
+// because a whole-spline-ring boolean is not trustworthy on this geometry
+// — see docs/spline-verification.md §3/§5. The female's own flat back sits
+// at shared x=pivot_x+yoke_tip_h (it grows from there, not from pivot_x
+// itself — see yoke_pivot_puck()), so the male's target is
+// pivot_x+yoke_tip_h+spline_seat, not pivot_x+spline_seat. The omission was
+// a 6mm (=yoke_tip_h) error that put the male's own solid base disc 1.7mm
+// deep into the female's, at every angle sampled — task report has the
+// before/after rod-probe numbers) solved together, not two separate
+// corrections layered on top of each other — derivation and the algebra
+// that collapses it to this closed form: task report.
 module arm_seat() {
-  theta = 90;   // see the block comment above -- exact multiple of
-               // 360/spline_n, so this re-meshes the spline exactly, not
-               // approximately.
+  theta = arm_seat_theta;
 
-  seat_z = yoke_t + yoke_standoff + base_female + base_male + spline_h + arm_len;
-  // Re-derived for general theta, not just theta=0's old formula copied
-  // over: the male spline's own local position within the arm is
-  // (0, arm_pivot_y, arm_len), NOT the arm's local origin, so the
-  // translate has to cancel out where THAT point lands under
-  // rotate([0,0,theta]) rotate([180,0,0]) -- (0,arm_pivot_y,arm_len) ->
-  // (arm_pivot_y*sin(theta), -arm_pivot_y*cos(theta), -arm_len). At
-  // theta=0 this collapses to (0, -arm_pivot_y, -arm_len), recovering the
-  // original, already-verified translate exactly (p(pivot_c)[1] +
-  // arm_pivot_y) -- checked algebraically here and re-checked against a
-  // real marker-rod + bar_stub() export (task report), not trusted from
-  // the algebra alone.
+  // Re-derived for the corrected R0 (see the block comment above): with
+  // R0·ẑ=+ŷ, pinning the pivot point fixed under Rx(theta) needs a MINUS
+  // sign on the arm_len terms below (was +, under the old, wrong-signed
+  // R0) — same "translate -> rotate(theta) -> rotate(R0)" closed form,
+  // re-solved algebraically for the new R0 (task report has the algebra),
+  // not just sign-flipped by guesswork.
   translate([
-    p(pivot_c)[0] - arm_pivot_y * sin(theta),
-    p(pivot_c)[1] + arm_pivot_y * cos(theta),
-    seat_z
+    pivot_x + yoke_tip_h + spline_seat - arm_pivot_y,
+    pivot_y - arm_len * cos(theta),
+    pivot_z - arm_len * sin(theta)
   ])
-    rotate([0, 0, theta])
-      rotate([180, 0, 0])
+    rotate([theta, 0, 0])
+      rotate([0, -90, -90])
         children();
+}
+
+/* ---- PARTS: pitch_probe_fixed / pitch_probe_arm ---------------------
+   ⭐ THE ACCEPTANCE TEST tools/build.sh's own pitch check is built on: two
+   pairs of marker rods, exported as real geometry (not algebra) at several
+   `arm_seat_theta` values, the same "verify by isolation + real geometry"
+   method this file already uses for the spline mesh
+   (docs/spline-verification.md §4) and for render-gen4.sh's own camera
+   derivation. NOT printable parts — bench/CI probes only.
+
+   Different DIAMETERS (not just lengths) so the two rods in each export
+   split apart (trimesh .split()) and are told apart unambiguously by
+   volume/radius alone, with no fragile length- or position-based guessing.
+
+   pitch_probe_fixed — built directly, untouched by arm_seat(), so its two
+   rods are the FIXED references every theta is measured against:
+     - "normal" (Ø4, along shared -Z): the display's own face normal —
+       display/yoke/cowl share this frame with no transform of their own.
+     - "up" (Ø2, along shared +Y): the display's own "up" — used only to
+       prove the hinge axis itself does not wander as theta changes (see
+       pitch_probe_arm's own "axis" rod below); not itself expected to
+       track pitch.
+
+   pitch_probe_arm — carried through arm_seat(), so its own two rods land
+   wherever the CURRENT `arm_seat_theta` puts them:
+     - "reach" (Ø4, arm-local Z — "up off the bore", the direction the
+       rising rib climbs to reach the pivot): NOT parallel to the hinge
+       axis, so its angle against the fixed "normal" rod is exactly the
+       display's own elevation/pitch — this is the rod the acceptance test
+       reads.
+     - "axis" (Ø2, arm-local Y — the bar's own axis, and now the spline's
+       too): PARALLEL to the hinge axis, so its own direction must stay
+       IDENTICAL for every theta — a rotation about an axis cannot move
+       that same axis. Checking this catches a DIFFERENT bug from the
+       elevation check (theta implemented as a rotation about the right
+       axis in the wrong PLACE — the pivot line itself wandering — rather
+       than the original defect's "rotation about the wrong axis entirely").
+   Neither rod's own angle against the fixed "normal" tests roll directly
+   (two direction vectors, with no in-plane reference, cannot); the
+   constant-axis property is the real-geometry stand-in this test uses for
+   "no roll snuck in" — see the task report for the closed-form derivation
+   (component of a fixed reference along the hinge axis, invariant under
+   any rotation about that same axis) this rod check stands in for. */
+// rod_gap: every rod starts this far from the shared origin along its OWN
+// axis, not at it — two rods that share an exact origin vertex weld into
+// ONE connected solid on export (confirmed: without this gap,
+// pitch_probe_fixed() exported as a single 1-component, 467mm³ watertight
+// body, not two separable rods — trimesh's `.split()` had nothing to
+// split). rod_len is each rod's own length beyond that gap.
+rod_gap = 3;
+rod_len = 25;
+
+// ⚠ cylinder()'s own axis is Z; a rod needing +Y or -Y is built along Z
+// then rotated the same way bar_bore() etc. do elsewhere in this file
+// (rotate([-90,0,0]) sends local Z -> local Y) — the gap-translate happens
+// BEFORE that rotation (in the cylinder's own pre-rotation Z), so it ends
+// up along the rotated axis instead of some other direction.
+module pitch_probe_fixed() {
+  // normal: -Z, gapped by mirroring a Z-axis rod that starts at rod_gap.
+  color("Red")
+    mirror([0, 0, 1])
+      translate([0, 0, rod_gap])
+        cylinder(d = 4, h = rod_len);
+  // up: +Y.
+  color("Blue")
+    rotate([-90, 0, 0])
+      translate([0, 0, rod_gap])
+        cylinder(d = 2, h = rod_len);
+}
+module pitch_probe_arm() {
+  arm_seat() {
+    // reach: arm-local +Z ("up off the bore").
+    color("Orange")
+      translate([0, 0, rod_gap])
+        cylinder(d = 4, h = rod_len);
+    // axis: arm-local +Y (the bar's own axis, and now the spline's too).
+    color("Green")
+      rotate([-90, 0, 0])
+        translate([0, 0, rod_gap])
+          cylinder(d = 2, h = rod_len);
+  }
 }
 
 /* ---- PART: assembly -------------------------------------------------
@@ -2071,17 +2424,27 @@ module assembly() {
    already sit at that part's own Z=0 -- verified against the real exported
    bboxes (tools/check_stl.py on stl/gen4-{yoke,arm,cap,cowl}.stl,
    2026-09-14), not guessed:
-     - yoke's bearing face is ALREADY at Z=0 as authored (bbox Z 0..20.5)
-       -- no flip needed, docs/printing.md's own "bearing face on the bed".
+     - yoke's bearing face is ALREADY at Z=0 as authored (bbox Z -4..36 as
+       of the ⚠ DM-6 rework — the pivot disc now reaches below Z=0 too, but
+       the BEARING face itself, what actually has to sit flat on the bed,
+       is still at Z=0) -- no flip needed, docs/printing.md's own "bearing
+       face on the bed".
      - cap's split (bore-opening) face is ALSO already at its own Z=0
        (bbox Z -24..0) -- mirroring alone (no extra translate) lands it on
        the bed, docs/printing.md's "bore-side down".
-     - arm's spline teeth sit at arm's OWN Z MAXIMUM (bbox Z 0..49.5 =
-       arm_len+base_male+spline_h) -- needs mirror AND a translate by that
-       same maximum to bring the teeth down to the bed, "spline face down".
-     - cowl's visible back cap sits at ITS OWN Z MAXIMUM too (bbox Z
-       -19..30.3 = -brow..cowl_depth) -- same mirror-plus-translate-by-max
-       treatment, by cowl_depth, "visible face down".
+     - arm's split (bore-opening) face is ALSO already at its own Z=0 (bbox
+       Z 0..65 as of the ⚠ DM-6 rework) -- no flip needed, same "bore-side
+       down" reasoning as the cap. ⚠ THIS CHANGED: the male spline's own
+       flat back used to sit at the arm's Z MAXIMUM (a flat disc
+       perpendicular to Z, "spline face down" meant flipping it onto the
+       bed) -- it no longer does. The spline's axis is now arm-local Y (⚠
+       DM-6 rework), so its disc lies in a plane perpendicular to Y, not Z:
+       there is no Z-flip that puts it "face down" any more, because it
+       isn't a horizontal face at either Z extreme. docs/printing.md flags
+       this as an open question rather than repeating stale guidance.
+     - cowl's visible back cap sits at ITS OWN Z MAXIMUM (bbox Z
+       -19..30.3 = -brow..cowl_depth) -- mirror-plus-translate-by-max,
+       "visible face down". Unaffected by the rework.
 */
 plate_gap = 15;   // clear air between parts -- generous on purpose. This is
                   // a layout aid, not a bed-packing optimiser; the margin
@@ -2091,9 +2454,11 @@ plate_gap = 15;   // clear air between parts -- generous on purpose. This is
                   // nest that a small growth could silently overlap.
 
 module plate() {
-  // Measured bboxes (tools/check_stl.py, 2026-09-14) -- for spacing only.
-  yoke_bb_w = 103.0;  yoke_bb_d = 90.1;   yoke_bb_x0 = -51.49; yoke_bb_y0 = -73.01;
-  arm_bb_w  =  70.0;  arm_bb_d  = 61.6;   arm_bb_x0  = -35.00; arm_bb_y0  = -42.50;
+  // Measured bboxes (tools/check_stl.py, re-measured 2026-09-14 for the
+  // ⚠ DM-6 rework -- yoke and arm both changed; cap and cowl did not) --
+  // for spacing only.
+  yoke_bb_w = 103.0;  yoke_bb_d = 107.09; yoke_bb_x0 = -51.49; yoke_bb_y0 = -90.00;
+  arm_bb_w  =  70.0;  arm_bb_d  =  46.20; arm_bb_x0  = -35.00; arm_bb_y0  = -27.10;
   cap_bb_w  =  70.0;  cap_bb_d  = 18.2;   cap_bb_x0  = -35.00; cap_bb_y0  =   0.90;
   cowl_bb_w = 161.0;  cowl_bb_d = 107.48; cowl_bb_x0 = -80.50; cowl_bb_y0 = -47.49;
 
@@ -2107,11 +2472,16 @@ module plate() {
   translate([col1_x - cowl_bb_x0, row1_y - cowl_bb_y0, 0])
     translate([0, 0, cowl_depth]) mirror([0, 0, 1]) cowl();
 
-  // Row 2: yoke, arm, cap.
+  // Row 2: yoke, arm, cap. Neither yoke nor arm is flipped any more (⚠ DM-6
+  // rework) -- both already have their own split/bearing face at Z=0 as
+  // authored (see the block comment above), same "bore/bearing-side down"
+  // treatment the cap already used. See docs/printing.md for the arm's own
+  // now-open question (the spline's disc is no longer a flat face at
+  // either Z extreme, so there is no equivalent "spline face down" flip).
   translate([col1_x - yoke_bb_x0, row2_y - yoke_bb_y0, 0])
     yoke();
   translate([col2_x - arm_bb_x0, row2_y - arm_bb_y0, 0])
-    translate([0, 0, arm_len + base_male + spline_h]) mirror([0, 0, 1]) arm();
+    arm();
   translate([col3_x - cap_bb_x0, row2_y - cap_bb_y0, 0])
     mirror([0, 0, 1]) cap();
 }
@@ -2139,6 +2509,7 @@ part = "gauge";
 // hint text (only the hint, not the logic) goes stale.
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
+else if (part == "pivot_puck_test") pivot_puck_test();
 else if (part == "yoke") yoke();
 else if (part == "arm") arm();
 else if (part == "cap") cap();
@@ -2146,5 +2517,7 @@ else if (part == "cowl") cowl();
 else if (part == "brow_test") brow_test();
 else if (part == "assembly") assembly();
 else if (part == "plate") plate();
+else if (part == "pitch_probe_fixed") pitch_probe_fixed();
+else if (part == "pitch_probe_arm") pitch_probe_arm();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, yoke, arm, cap, cowl, brow_test, assembly, plate"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, pivot_puck_test, yoke, arm, cap, cowl, brow_test, assembly, plate, pitch_probe_fixed, pitch_probe_arm"));

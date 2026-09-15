@@ -86,39 +86,36 @@ echo
 echo "=== assembly: iso / side / front (PNG only -- not a fabricated part, no STL) ==="
 # Camera rotations below are GROUND-TRUTH derived, not guessed: rendered a
 # throwaway scene of three differently-sized marker rods along shared X/Y/Z
-# and read off, for each candidate rotation, which rod foreshortens to a
-# dot (that is the axis you are looking ALONG) and which two are the
-# image's horizontal/vertical (2026-09-14 fix -- see the task report for
-# the full derivation and why the PREVIOUS choices here were wrong: they
-# were made before arm_seat() itself was corrected, so "looking along Z"
-# read as a plausible cowl-face-on shot without anyone noticing Z is ALSO
-# the bike's own vertical axis post-fix).
+# and read off, for each candidate rotation, which rod foreshortens to a dot
+# (that is the axis you are looking ALONG) and which two are the image's
+# horizontal/vertical.
 #
-# Confirmed axis meanings after arm_seat()'s fix: shared X = the bike's
-# lateral axis (the bar's own length, post-fix), shared Y = front-to-back,
-# shared Z = the spline's own axis, arm-local Z ("above the bar
-# centreline") mapped to shared -Z (marker-rod-verified) -- so shared -Z is
-# "real up" and +Z is "real down". A first pass at these three cameras
-# used a positive rotx (90/78) for each and got the AXIS right but the
-# SIGN backwards: a separate marker test (an asymmetric floor flag at
-# z<0 vs a rod at z>0) showed +Z rendering screen-UP at rotx=90/78, which
-# means real "up" (shared -Z) was rendering at the BOTTOM of the frame --
-# confirmed against the actual assembly render, which showed the
-# display+cowl (which sits further along real "up" than the bar) sitting
-# BELOW the clamp instead of above it. Negating rotx (90->-90, 78->-78)
-# re-tested with the same floor-flag marker and confirmed fixed: real "up"
-# now renders at the top, for all three views below.
+# ⚠ RE-DERIVED 2026-09-14 for the ⚠ DM-6 rework (arm_seat()'s own base
+# rotation changed what each shared axis physically means -- see that
+# module's own block comment in gen4-display-mount.scad). Confirmed axis
+# meanings now: shared X = the bike's lateral axis (the bar's own length,
+# unchanged by the rework), shared Y = the display's own vertical (real "up"
+# is +Y, since the display's top edge sits at model Y=+disp_h/2 and the
+# display is fixed in this frame), shared Z = front-to-back depth. This is
+# ALSO, conveniently, OpenSCAD's own default camera convention exactly (no
+# rotation needed at all for a Z-depth/Y-up/X-right view) -- confirmed with
+# the same marker-rod scene (three different-length rods along X/Y/Z from
+# the origin): at rotation (0,0,0) the Z rod foreshortens to a dot and X/Y
+# render horizontal/vertical respectively, with no sign flip needed.
 openscad_png renders/gen4-assembly-iso.png -D 'part="assembly"' \
-  --camera=0,0,0,-78,0,25,300
-# side: looking along shared X (lateral) with Y (front-to-back) horizontal
-# and Z (vertical) vertical in the image -- the bike's profile.
+  --camera=0,0,0,-25,35,0,300
+# side: looking along shared X (lateral) with Z (depth) horizontal and Y
+# (vertical) vertical in the image -- the bike's profile. Marker-rod
+# confirmed: at ry=90 the X rod foreshortens to a dot, Y renders vertical,
+# Z renders horizontal.
 openscad_png renders/gen4-assembly-side.png -D 'part="assembly"' \
-  --camera=0,0,0,-90,0,90,300
-# front: looking along shared Y (front-to-back) with X (lateral) horizontal
-# and Z (vertical) vertical -- as an observer standing in front of the
-# parked bike would see it.
+  --camera=0,0,0,0,90,0,300
+# front: looking along shared Z (depth) with X (lateral) horizontal and Y
+# (vertical) vertical -- as an observer standing in front of the parked
+# bike would see it. No rotation needed (OpenSCAD's own default already
+# looks along Z with Y up, X right) -- marker-rod confirmed above.
 openscad_png renders/gen4-assembly-front.png -D 'part="assembly"' \
-  --camera=0,0,0,-90,0,0,300
+  --camera=0,0,0,0,0,0,300
 
 echo
 echo "=== verify: assembly clearance on POSITIONED exports (check_fit.py, a"
