@@ -15,13 +15,17 @@ the display for a minute and then thrown away. It never sees load, heat or UV.
 
 ## Orientation, per part
 
+⭐ **Two-clamp mount (2026-09-15): print TWO of `arm` and TWO of `cap`, one clamp per side of the
+bracket.** Both sides are the same STL — see `docs/design-notes.md` for why the part needs no
+left/right variant.
+
 | Part | Orientation | Why |
 |---|---|---|
 | `gauge` | flat, as exported | trivial |
-| `yoke` | **bearing face on the bed** | that face must be flat and dimensionally true — it is what seats against the display. ⬜ **Spline orientation open** since the tilt-joint fix (`docs/design-notes.md`'s DM-6): the pivot boss now faces sideways (its axis parallel to the bar), so with the bearing face down the Ø40 disc stands with its face vertical, a puck hanging off the lower arm, rather than the flat "teeth as vertical walls off a horizontal disc" of the pre-fix geometry. Whether that needs support has not been slicer-checked |
-| `arm` | bore-side down (clamp bore horizontal) | ⬜ **Spline orientation open**, same reason as the yoke above — the male spline's own disc is no longer a flat face at either Z extreme (it faces sideways, arm-local Y), so there is no single flip that puts it flat on the bed alongside the bore. Not slicer-checked |
-| `cap` | bore-side down | no supports needed |
-| `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up |
+| `yoke` | **bearing face on the bed** | that face must be flat and dimensionally true — it is what seats against the display. Now carries a spline at EACH end (mirrored) rather than one off to a side; the bearing face itself is unaffected by that. ⬜ **Spline orientation open** since the tilt-joint fix (`docs/design-notes.md`'s DM-6): each pivot boss faces sideways (its axis parallel to the bar), so with the bearing face down each Ø40 disc stands with its face vertical, a puck hanging off its own leg, rather than the flat "teeth as vertical walls off a horizontal disc" of the pre-fix geometry. Whether that needs support has not been slicer-checked |
+| `arm` (×2) | bore-side down (clamp bore horizontal) | ⬜ **Spline orientation open**, same reason as the yoke above — the male spline's own disc is no longer a flat face at either Z extreme (it faces sideways, arm-local Y), so there is no single flip that puts it flat on the bed alongside the bore. Not slicer-checked |
+| `cap` (×2) | bore-side down | no supports needed |
+| `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up. Its bottom opening is now one symmetric notch (⭐ 2026-09-15) wide enough for both legs and both clamps |
 | `brow_test` | flat | throwaway |
 
 ## Settings
@@ -31,7 +35,8 @@ Nothing exotic. Starting points:
 - **Layer height** 0.2 mm for structural parts, **0.16 mm for the cowl** (it is the visible one).
 - **Walls** 4 minimum on the yoke and arm; the cowl is designed around **2.4 mm = 6 perimeters at
   0.4 mm**, so set perimeters to match rather than letting infill do the work.
-- **Infill** 40–50 % on yoke and arm. They are small parts and this is not where to save filament.
+- **Infill** 40–50 % on yoke and arm (both clamp halves — print two of each). They are small parts and
+  this is not where to save filament.
 - **Supports** none required for any part in its stated orientation. If your slicer wants supports,
   the part is oriented wrong.
 - **Brim** helps on ASA, which likes to lift.
@@ -48,9 +53,14 @@ The order exists to catch mistakes cheaply. Do not skip ahead.
 1. **`gauge`** — proves the hole pattern, the slot, the flat-band assumption and your bolt length
    against the real display. Short print. Everything downstream inherits that hole pattern, so if it
    is wrong you want to know now.
-2. **`brow_test`** — settles the brow projection before the cowl's shape is committed.
+2. **`brow_test`** — the riser and visor alone. Confirms the visor's reach and shape against the
+   real screen, seated normally, before the cowl's shape is committed. ⚠️ Check both things it can get
+   wrong: that it shades the screen in sun, **and** that it does not cut into the top of the screen
+   from your own riding position (`docs/design-notes.md`, "The underside is flat on purpose").
 3. **`yoke`**
-4. **`arm`** + **`cap`** — needs your handlebar diameter measured first.
+4. **`arm`** + **`cap`**, **×2 each** — needs your handlebar diameter measured **on both sides** first
+   (`docs/bike-fitment.md` — the left side is a temporary assumption until confirmed). Print one pair,
+   confirm it clamps and mates its spline correctly, before committing filament to the second.
 5. **`cowl`** — last, because it is the only part whose shape depends on all the others being settled.
 
 ## Building the STLs yourself

@@ -116,6 +116,31 @@ openscad_png renders/gen4-assembly-side.png -D 'part="assembly"' \
 # looks along Z with Y up, X right) -- marker-rod confirmed above.
 openscad_png renders/gen4-assembly-front.png -D 'part="assembly"' \
   --camera=0,0,0,0,0,0,300
+# rider: looking at the GLASS, from in front of it and a little above --
+# the view from the saddle. Same axis along which "front" looks, turned
+# through 180 degrees (ry=180) so the camera is on the glass side rather
+# than the cowl side, then tilted 20 degrees down. Confirmed by rendering
+# it: the screen's own grey face fills the frame, the visor reads across
+# the top, and both clamps are visible flanking the centre bracket.
+openscad_png renders/gen4-assembly-rider.png -D 'part="assembly"' \
+  --camera=0,0,0,20,180,0,300
+# three-quarter from the glass side: the one angle that shows the visor's
+# own plan curve AND its projection past the glass at the same time.
+openscad_png renders/gen4-assembly-threequarter.png -D 'part="assembly"' \
+  --camera=0,0,0,-25,145,0,300
+
+echo
+echo "=== visor: plan + profile (the two views its shape is judged in) ==="
+# Plan (looking straight down): the superelliptical leading edge, which is
+# the silhouette seen from in front of the bike. Renders the whole cowl,
+# not brow_test, so the visor is shown against the box it grows from.
+openscad_png renders/gen4-visor-plan.png -D 'part="cowl"' \
+  --camera=0,0,0,90,0,0,300
+# Profile (looking along the bar): how far it actually reaches past the
+# glass, and the flat underside the shading derivation rests on. brow_test
+# is the riser+visor strip alone, so nothing else is in the way.
+openscad_png renders/gen4-visor-profile.png -D 'part="brow_test"' \
+  --camera=0,0,0,0,90,0,200
 
 echo
 echo "=== verify: assembly clearance on POSITIONED exports (check_fit.py, a"
@@ -128,7 +153,15 @@ echo "    different boolean engine from OpenSCAD/CGAL) ==="
 # docs/spline-verification.md §3/§5 is explicit that a whole-ring boolean
 # on this geometry (CGAL OR manifold3d) is not trustworthy; that mate is
 # proven there instead (rod-probe method), not here.
-VENV=/root/.venvs/revv1/bin/python
+# ⚠ Same two CI hazards build.sh was fixed for on 2026-09-14, which survived
+# here until 2026-09-15: a HARDCODED interpreter that exists on exactly one
+# developer machine, and a check_fit.py path of `../tools/...` that points
+# OUTSIDE the repository -- so a clean public clone could not run this
+# script at all. Resolve the interpreter the same way build.sh does, and
+# use the VENDORED tools/check_fit.py.
+VENV="${REVV1_PY:-}"
+if [ -z "$VENV" ] && [ -x /root/.venvs/revv1/bin/python ]; then VENV=/root/.venvs/revv1/bin/python; fi
+if [ -z "$VENV" ]; then VENV=python3; fi
 WORKDIR="$(mktemp -d "${TMPDIR:-/tmp}/render-gen4-fit.XXXXXX")"
 trap 'rm -rf "$WORKDIR"' EXIT
 
@@ -140,35 +173,56 @@ trap 'rm -rf "$WORKDIR"' EXIT
 # as a no-op, `arm_seat`/`display_stub` come back "unknown module", and the
 # .stl exports empty -- confirmed the hard way, once).
 SRC_ABS="$(pwd)/$SRC"
-cat > "$WORKDIR/pos_arm.scad" <<EOF
+# ⭐ TWO-CLAMP REWORK (2026-09-15): arm_seat() is now clamp_seat(side) --
+# side=1 right, side=-1 left, mirror([1,0,0]) of the same right-side seating
+# (see clamp_seat()'s own block comment in gen4-display-mount.scad for why
+# that mirror needs no separate re-derivation). Both sides positioned here,
+# not just the right, so this script's own clearance sweep covers the same
+# ground tools/build.sh's does.
+cat > "$WORKDIR/pos_arm_r.scad" <<EOF
 use <$SRC_ABS>
-arm_seat() arm();
+clamp_seat(1) arm();
 EOF
-cat > "$WORKDIR/pos_cap.scad" <<EOF
+cat > "$WORKDIR/pos_cap_r.scad" <<EOF
 use <$SRC_ABS>
-arm_seat() cap();
+clamp_seat(1) cap();
+EOF
+cat > "$WORKDIR/pos_arm_l.scad" <<EOF
+use <$SRC_ABS>
+clamp_seat(-1) arm();
+EOF
+cat > "$WORKDIR/pos_cap_l.scad" <<EOF
+use <$SRC_ABS>
+clamp_seat(-1) cap();
 EOF
 cat > "$WORKDIR/display.scad" <<EOF
 use <$SRC_ABS>
 display_stub();
 EOF
-openscad -o "$WORKDIR/pos_arm.stl" "$WORKDIR/pos_arm.scad"
-openscad -o "$WORKDIR/pos_cap.stl" "$WORKDIR/pos_cap.scad"
+openscad -o "$WORKDIR/pos_arm_r.stl" "$WORKDIR/pos_arm_r.scad"
+openscad -o "$WORKDIR/pos_cap_r.stl" "$WORKDIR/pos_cap_r.scad"
+openscad -o "$WORKDIR/pos_arm_l.stl" "$WORKDIR/pos_arm_l.scad"
+openscad -o "$WORKDIR/pos_cap_l.stl" "$WORKDIR/pos_cap_l.scad"
 openscad -o "$WORKDIR/display.stl" "$WORKDIR/display.scad"
 
 check_clear() {
   local label="$1" a="$2" b="$3"
-  if $VENV ../tools/check_fit.py intersect "$a" "$b" > "$WORKDIR/fit.log" 2>&1; then
+  if $VENV tools/check_fit.py intersect "$a" "$b" > "$WORKDIR/fit.log" 2>&1; then
     echo "OK   $label: CLEAR"
   else
     echo "FAIL $label:"; cat "$WORKDIR/fit.log"; FAIL=1
   fi
 }
-check_clear "display vs yoke"           "$WORKDIR/display.stl" stl/gen4-yoke.stl
-check_clear "display vs positioned arm" "$WORKDIR/display.stl" "$WORKDIR/pos_arm.stl"
-check_clear "display vs positioned cap" "$WORKDIR/display.stl" "$WORKDIR/pos_cap.stl"
-check_clear "yoke vs positioned cap"    stl/gen4-yoke.stl       "$WORKDIR/pos_cap.stl"
-check_clear "cowl vs positioned cap"    stl/gen4-cowl.stl       "$WORKDIR/pos_cap.stl"
+check_clear "display vs yoke"               "$WORKDIR/display.stl" stl/gen4-yoke.stl
+check_clear "display vs positioned arm (r)" "$WORKDIR/display.stl" "$WORKDIR/pos_arm_r.stl"
+check_clear "display vs positioned cap (r)" "$WORKDIR/display.stl" "$WORKDIR/pos_cap_r.stl"
+check_clear "display vs positioned arm (l)" "$WORKDIR/display.stl" "$WORKDIR/pos_arm_l.stl"
+check_clear "display vs positioned cap (l)" "$WORKDIR/display.stl" "$WORKDIR/pos_cap_l.stl"
+check_clear "yoke vs positioned cap (r)"    stl/gen4-yoke.stl       "$WORKDIR/pos_cap_r.stl"
+check_clear "yoke vs positioned cap (l)"    stl/gen4-yoke.stl       "$WORKDIR/pos_cap_l.stl"
+check_clear "cowl vs positioned cap (r)"    stl/gen4-cowl.stl       "$WORKDIR/pos_cap_r.stl"
+check_clear "cowl vs positioned cap (l)"    stl/gen4-cowl.stl       "$WORKDIR/pos_cap_l.stl"
+check_clear "positioned cap (r) vs (l)"     "$WORKDIR/pos_cap_r.stl" "$WORKDIR/pos_cap_l.stl"
 
 echo
 if [ "$FAIL" -ne 0 ]; then

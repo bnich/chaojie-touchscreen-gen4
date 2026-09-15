@@ -16,6 +16,19 @@ All numbers below are from the shipped module (`spline_od=40, spline_id=12,
 spline_n=48, spline_h=1.6`), re-measured against the current file, not transcribed
 from an earlier draft.
 
+⭐ **Two-clamp rework (2026-09-15): this whole note applies unchanged, to BOTH joints.** The yoke now
+carries a female spline at each end of the hinge axis (`pivot_x_r`/`pivot_x_l = -pivot_x_r`), each
+mating its own clamp's male half, instead of one female spline at the centre. The RIGHT joint is
+bit-for-bit the same construction this note already proves (`base_male=3`, `base_female=3`, §6's own
+seating figures apply directly, unchanged). The LEFT joint is `mirror([1,0,0])` of the entire right
+one — spline, puck, leg and seated clamp together, not a second construction — and mirroring is an
+isometry (it preserves every distance), so every contact/gap number in §5/§6 carries over to the left
+joint exactly, without re-running the rod probe there: a mirrored copy of a "0.0034mm real contact"
+scene is still a "0.0034mm real contact" scene, just reflected. See `docs/design-notes.md` for why the
+mirror also reproduces the correct tooth PHASE (the male spline's own pattern, phase=0, is
+self-symmetric under this exact mirror) rather than an accidentally-misaligned one — that argument,
+not a fresh measurement, is what licenses skipping a second full rod-probe run on the left joint.
+
 ## 1. The single-hull tooth doesn't mesh — measured, not assumed
 
 The first construction built one flank as `hull()` of 6 points: the two trough

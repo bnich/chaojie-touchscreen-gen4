@@ -4,9 +4,11 @@ A parametric, 3D-printable handlebar mount for the **Chaojie `CJ-V5-04`** 5" tou
 the panel sold with FarDriver controllers by E-Conic, EMF and others. It ships with no bracket of any
 kind.
 
-Four printed parts: a structural yoke that bolts to the display's three M5 inserts, a toothed-spline
-tilt joint that **cannot creep**, a two-piece handlebar clamp, and a cosmetic rear cowl with an
-integrated sun brow — because on a moped the back of this display faces the world.
+Four printed parts (six on the bike — the clamp prints twice): a structural yoke that bolts to the
+display's three M5 inserts and grows a toothed-spline tilt joint **on each side** — **cannot creep**,
+and clamps the handlebar on **both** sides of the centre bracket instead of cantilevering off one —
+and a cosmetic rear cowl with an integrated sun visor, because on a moped the back of this display
+faces the world.
 
 <p align="center">
   <img src="renders/display-rear-geometry.svg" width="88%" alt="Dimensioned rear-face drawing of the Chaojie CJ-V5-04, showing the three M5 mounting holes at (39.50, 40.9), (120.50, 40.9) and (80.00, 63.28), the Ø21.7 cable-boot collar at the centre, and the flat bearing band between Y 23.0 and Y 71.6">
@@ -22,10 +24,10 @@ integrated sun brow — because on a moped the back of this display faces the wo
 |---|---|
 | **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
 | Face spline (tilt joint) | ✅ done — meshing proven geometrically |
-| **Yoke** | ✅ done — [`stl/gen4-yoke.stl`](stl). Pivot axis runs parallel to the handlebar (`docs/design-notes.md`'s DM-6), so the joint pitches the display instead of rolling it — proven with the pitch acceptance test in `tools/build.sh` |
-| **Arm + clamp cap** | ✅ done — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`); male spline proven against the yoke's female with `tools/check_fit.py` |
-| **Cowl + sun brow** | ✅ done — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). Clears the yoke, the arm and the display itself (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export); ⬜ **the 19mm brow projection is unproven — print `brow_test` and hold it against the screen on the bike before trusting it** |
-| **Assembly renders + print plate** | ✅ done — [`renders/`](renders). Every part positioned as it actually assembles (display and handlebar shown as stand-ins, not printed), plus the 4 printable parts laid out flat in their print orientation. Clearance re-proven with `tools/check_fit.py` on the positioned exports |
+| **Yoke** | ✅ done, **⭐ two-sided (2026-09-15)** — [`stl/gen4-yoke.stl`](stl). A spline at **each** end of one shared, coaxial hinge axis, parallel to the handlebar (`docs/design-notes.md`'s DM-6), so the joint pitches the display instead of rolling it — proven with the pitch acceptance test in `tools/build.sh`, both sides mirror-consistent |
+| **Arm + clamp cap** | ✅ done, **print two of each — one clamp per side of the centre bracket** — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`, ⬜ left side assumed to mirror the measured right side); male spline proven against the yoke's own female with `tools/check_fit.py`, both sides |
+| **Cowl + sun visor** | ✅ done, **⭐ visor reworked (2026-09-15)** — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). One symmetric bottom opening clears both legs and both clamps; clears the yoke and the display itself too (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export). The visor reaches **33 mm past the glass** and its plan curve is a superellipse, measured at **27.7 % of the screen shaded** with the sun 45° off the screen normal (`tools/check_shade.py`, a build gate); ⬜ **not bench-verified — print `brow_test` and hold it against the screen on the bike before committing the cowl** |
+| **Assembly renders + print plate** | ✅ done — [`renders/`](renders). Every part positioned as it actually assembles (display and handlebar shown as stand-ins, not printed, both clamps shown), plus the 4 printable parts laid out flat in their print orientation. Clearance re-proven with `tools/check_fit.py` on the positioned exports |
 
 **The fit gauge is printable today**, and it is the right thing to print first regardless (see below).
 Watch the repo or check [CHANGELOG.md](CHANGELOG.md) for the rest.
@@ -137,10 +139,11 @@ Exports every part and checks each bounding box. Individual parts:
 openscad -o out.stl -D 'part="yoke"' src/gen4-display-mount.scad
 ```
 
-Valid names: `gauge`, `spline_test`, `yoke`, `arm`, `cap`, `cowl`, `brow_test`, `plate` (the 4
-printable parts laid out on one plate) and `assembly` (every part positioned as it actually
-assembles, plus stand-ins for the display, the handlebar and the bracket it clamps to — not
-fabricated, PNG only). An unrecognised name fails loudly on purpose.
+Valid names: `gauge`, `spline_test`, `pivot_puck_test`, `yoke_leg_test`, `yoke_plate_test`, `yoke`,
+`arm`, `cap`, `cowl`, `brow_test`, `plate` (the 4 printable parts laid out on one plate — print `arm`
+and `cap` twice each, one clamp per side) and `assembly` (every part positioned as it actually
+assembles — both clamps — plus stand-ins for the display, the handlebar and the bracket it clamps
+to — not fabricated, PNG only). An unrecognised name fails loudly on purpose.
 
 ```bash
 ./tools/render-gen4.sh

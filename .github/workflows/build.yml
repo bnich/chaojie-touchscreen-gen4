@@ -25,8 +25,13 @@ jobs:
       # ~915 they needed, while passing watertight, zero boundary edges, zero
       # non-manifold edges and one connected component. All four are surface
       # topology; none of them test fill.
+      #   rtree is NOT optional either: it backs trimesh's ray engine, which is
+      # what tools/check_shade.py uses to measure whether the sun visor
+      # actually shades the screen. Without it that check dies with
+      # ModuleNotFoundError partway through the run. Verified by building a
+      # venv with exactly this list minus rtree and watching it fail.
       - name: Install mesh tooling
-        run: pip install trimesh manifold3d numpy scipy networkx
+        run: pip install trimesh manifold3d numpy scipy networkx rtree
 
       - name: Export every part, verify meshes, volumes and clearances
         run: xvfb-run -a ./tools/build.sh

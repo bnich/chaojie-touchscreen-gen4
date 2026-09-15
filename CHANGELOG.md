@@ -4,7 +4,120 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
 
 ## Unreleased
 
+### Changed
+- **Two-clamp rework (2026-09-15).** The mount now clamps the bar on **both** sides of the centre
+  bracket, not one. Owner's verdict on the one-sided design: "we should be attaching on both sides
+  of the handlebars. There is a tiny sliver of plastic supporting the entire display" — correct, and
+  a two-sided mount had been wrongly argued against at design time.
+  **`arm_crank` removed.** Each clamp roots its own spline at its own bare `clamp_x0+clamp_w/2`
+  (no offset); the display centres itself between two mirrored pivots instead of being cranked back
+  to one. `clamp_x0` changed 1→0 — the clamps now **butt** the bracket's faces rather than standing
+  1mm clear of them.
+  **`arm_seat()` → `clamp_seat(side)`.** `side=1` (right) is the same translate/rotate this file has
+  always used, with `pivot_x` replaced by the new, DERIVED `pivot_x_r` (closed form: solve "what X
+  lands the clamp's inboard face exactly on the bracket's own face" for the spline position, instead
+  of solving `arm_crank` and checking `bracket_w` against 45mm after the fact — that check is gone,
+  replaced by nothing needing to drift). `side=-1` (left) is `mirror([1,0,0])` of that exact result —
+  proven, not assumed, safe: the clamp's own solid and the spline's own tooth phase are each provably
+  self-symmetric under this mirror (`docs/design-notes.md`), and mirroring about the plane
+  perpendicular to the shared hinge axis commutes with the `theta` pitch rotation (so both clamps use
+  the same `theta`, not opposite-signed ones) — confirmed against real exported geometry, not the
+  algebra alone.
+  **Yoke: one female spline → two, mirrored.** New `yoke_leg()` (was the single "lower arm" inside
+  `yoke()`) builds the right leg; the left is `mirror([1,0,0]) yoke_leg()`. `yoke_profile()`'s hull
+  gained two more anchor circles (one per leg root) so both union onto the (now wider) bearing plate
+  generously rather than by a graze. New `leg_w` (18mm, was `yoke_arm_w`=26) — narrower, to clear the
+  lone M5's own socket sweep now that neither leg is centred under it (new assertion). New
+  `pivot_x_r`/`pivot_x_l` (`=-pivot_x_r`), coaxial with the unchanged `pivot_y`/`pivot_z`.
+  **Cowl opening: asymmetric → symmetric again**, `open_x0`/`open_x1` now `±open_half`, sized off
+  the same seated-clamp-reach formula (`clamp_seat_x_reach`, was `arm_seat_x_reach`) for one side and
+  mirrored — simpler than the single-clamp design's own one-sided opening. M3 boss positions follow.
+  **New test parts** `yoke_leg_test` (one leg alone) and `yoke_plate_test` (bearing plate alone) —
+  measured by isolation, the same method `spline_test`/`pivot_puck_test` already use, so the
+  whole-yoke fill-sanity check in `tools/build.sh` is built from real measurements of the new
+  sub-assemblies rather than reused numbers from a differently-shaped design.
+  **Screen height above the bar is unchanged (52/146mm)** — the rework only moved things sideways
+  (X); every number the height depends on (`arm_len`, `bar_d0`, `pivot_y`) is untouched.
+  ⬜ **Left side of the bar is unmeasured** — `bar_d0`/`bar_taper`/`bar_run` are a TEMPORARY
+  assumption (mirror the measured right side); flagged at their own definition and in
+  `docs/bike-fitment.md`.
+  Verified: every part (gauge, spline_test, pivot_puck_test, yoke_leg_test, yoke_plate_test, yoke,
+  arm, cap, cowl, brow_test) watertight, 0 boundary edges, 0 non-manifold edges, 1 connected
+  component. Whole-yoke volume 66534.6mm³ (0.91× the plate+2×leg overestimate). Cowl clearance CLEAR
+  against yoke, both positioned clamps, the display, and the two clamps against each other — each
+  positioned clamp's bbox also checked against an independently hand-derived per-axis expectation
+  (matched to the mm on the first run). **Pitch acceptance test unchanged and still passing**: three
+  7.5° clicks move elevation by exactly 22.500°, roll stays at 0.0000000, hinge-axis drift 0.000000°.
+  Every assertion (existing and new) reconfirmed to fire when deliberately broken.
+
+### Added
+- **Four new renders** (`tools/render-gen4.sh`): `gen4-assembly-rider.png` (the view from the
+  saddle), `gen4-assembly-threequarter.png`, and `gen4-visor-plan.png` / `gen4-visor-profile.png` —
+  the two views the visor's shape is actually judged in (its plan silhouette, and how far it reaches
+  past the glass).
+
 ### Fixed
+- **`tools/render-gen4.sh` could not run in a clean clone.** It still carried the two hazards
+  `tools/build.sh` was fixed for on 2026-09-14: a hardcoded `/root/.venvs/revv1/bin/python`, and a
+  `../tools/check_fit.py` path pointing **outside the repository**. Now resolves the interpreter the
+  same way `build.sh` does (`$REVV1_PY` → local venv → `python3`) and uses the vendored
+  `tools/check_fit.py`.
+- **The sun visor shaded nothing, and then shaded too little (2026-09-15).** Owner: *"The 'brow'
+  doesn't even reach across the top, the point of it was to block sunlight, that blocks nothing."*
+  Two separate defects, found in that order.
+  **(1) It pointed the wrong way.** `brow` was measured off the cowl's own rear face, not off the
+  glass, so a "19mm brow" put its tip at z=-19 with the glass at z=-26 — **7mm behind the surface it
+  was supposed to shade**, projecting backwards. Measured shade at every sun angle: **0.0%**. The
+  acceptance criterion had been "the brow projects `brow` mm", which the part satisfied exactly; it
+  measured the mechanism, not the job — the same failure mode as the tilt joint that rolled instead
+  of pitching. `brow` is now the TRUE projection past the glass plane and is **33mm**.
+  **(2) Reaching further did almost nothing.** With the tip out past the glass the visor still
+  shaded only **14.8%** at 45°. Stretching projection to 45mm gave 17.2% and to 60mm gave 20.4% —
+  and the shadow's depth down the screen did not move at all, 14.1mm in every case. The straight
+  taper had narrowed to a 2mm spike by mid-projection, so the screen's outer columns were in full
+  sun however far the spike reached. **Width, not projection, is the lever** — measured, not argued.
+  **Fixed** by making the plan curve a **superellipse** (`brow_plan_n`=3, `brow_stations`=14 lofted
+  sin-spaced stations clustered at the nose): full width at the glass plane, holding most of it for
+  most of the run, then turning back to a blunt rounded nose. Same 33mm projection, same rounded
+  silhouette the owner asked for. `brow_edge_x` also corrected from `disp_w/2 - disp_corner_r` (=71)
+  to `disp_w/2 + reveal - brow_d_s/2` (=79): the old value applied the box's own R9 corner logic to
+  a feature that sits entirely above the box, carried by the full-width **riser**, leaving the visor
+  9.5mm per side narrower than its own support and a visible width crease in plan view.
+  Result: **27.7% shaded at 45°** (was 0.0%, then 14.8%), 49.3% at 60°, 94.0% at 75°; shadow depth
+  28.2mm (was 14.1mm). The visor's underside stays **flat**, deliberately — it extends toward the
+  rider, so anything that shades the sun at a given angle also blocks the rider's eye at it; shade
+  above ~45° is what the tilt joint is for.
+  ⭐ **New permanent sun-visor shade test** (`tools/check_shade.py`, gated in `tools/build.sh`):
+  ray-casts the glass from the sun at 45/60/75° **off the screen's own normal** and fails the build
+  below 20% at 45°. Proven to fire — the shipped-and-committed old brow scores 0.0% and fails by 20
+  points, and the straight-taper shape scores 14.8% and fails too.
+  The cowl's own fill gate was re-derived for the new solid visor (its expectation still modelled a
+  19mm hollow full-width prism) and its floor tightened 0.60 → 0.66: at the shipped 0.733, deleting
+  the visor reads 0.51 and losing half of it 0.62 — both now fail, where the old floor passed the
+  half-lost case.
+- **The clamp-to-spline rib had collapsed to a 0.2mm knife edge (found by eye, 2026-09-15).** Owner:
+  *"Ensure that there is enough material holding the clamp to the handlebars to the toothed piece.
+  It looks very thin."* They were right — a station-by-station section scan of `arm()` (intersect
+  with a 1mm slab, volume ÷ thickness) found the rising rib's "vertical riser" stage down to
+  **4 mm²**, not the ~160mm² its own comment assumed: two `taper_wp()` waypoints at the *same* Y
+  cannot gain any real Y-thickness from a `hull()` between them (a convex hull is bounded by the
+  union of its inputs' own Y-range, the same rule this file leans on everywhere else — here it was
+  working against the design). Every existing check — watertight, 0 boundary, 0 non-manifold, 1
+  component, whole-part volume, clearance, a normal render — stayed green throughout; none of them
+  measure a cross-section. **Fixed** by widening the riser to a real Y-span (new
+  `clamp_riser_y0`/`clamp_riser_y1`, 14mm, inboard of the clamp tube's own edges) instead of a
+  single Y — that stage now measures a flat **284.00mm²** across its whole z=24..26 floor,
+  comparable to its neighbours (307-592mm² either side). The **scanned load path's** own minimum is
+  **261.61mm² at z=0**, the clamp end — a different feature, and above the 200mm² floor. Also corrected in passing: the
+  yoke leg's own documented minimum was itself a never-measured hand estimate (144mm² claimed,
+  ~119mm² actual — `docs/design-notes.md`), and `arm_w`'s own comment had the wrong axis (claimed Y,
+  is actually X) since the ⚠ DM-6 axis rework.
+  ⭐ **New permanent load-path section scan** in `tools/build.sh`: the same slab-intersection method
+  (no shapely needed), run at 1mm stations along `arm.stl`'s clamp→spline path (floor 200mm²) and
+  `yoke-leg-test.stl`'s own path (floor 100mm², reflecting its different, already-reasoned minimum)
+  — fails the build if either drops below its floor. Proven to fire: reproduces the 4mm² defect
+  against the pre-fix geometry, and independently catches a synthetic `leg_w=6` yoke-leg thinning
+  (~46-65mm²) that clears every pre-existing assertion.
 - **The tilt joint now actually tilts (⚠ DM-6 re-derived).** The face spline's axis was the
   display's own normal, so rotating the joint rolled the screen in its own plane instead of
   pitching it — found 2026-09-14 during assembly rendering. Re-derived DM-6 for an axis parallel

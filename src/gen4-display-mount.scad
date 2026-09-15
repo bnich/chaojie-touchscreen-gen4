@@ -1,11 +1,32 @@
 // ============================================================
-//  Chaojie Gen 4 5" display (CJ-V5-04) — BAR MOUNT + REAR COWL
+//  Chaojie Gen 4 5" display (CJ-V5-04) — TWO-SIDED BAR MOUNT + REAR COWL
 //
 //  Design notes: docs/design-notes.md
 //  Geometry: docs/display-geometry.md
 //    — taken off the factory manual's §III installation drawing, rendered at
 //      600 dpi and calibrated on its own printed dimensions (0.26% agreement).
 //      Thread, depth and orientation confirmed on the unit 2026-09-13.
+//
+//  ⭐ TWO-CLAMP REWORK, 2026-09-15. The original design hung the whole display
+//     off ONE narrow yoke arm, necking down through the cowl's opening to a
+//     SINGLE spline disc and one clamp — a cantilever on a thin section, on a
+//     vehicle with no drivetrain damping. Rejected by the owner: "we should be
+//     attaching on both sides of the handlebars. There is a tiny sliver of
+//     plastic supporting the entire display." Correct call. The bracket this
+//     mount clamps to is 45mm wide; there are now TWO clamps, one butting each
+//     of the bracket's two faces, joined by a cross-member that carries the
+//     display and grows a spline boss on EACH side — a proper axle with a
+//     spline at each end, not one disc taking the whole moment. Grip spreads
+//     ~85mm along the bar (2x18mm clamps either side of the 45mm bracket)
+//     instead of 18mm on one side of it, and the display centres itself
+//     between the two pivots with no crank needed.
+//  ⚠ LEFT SIDE OF THE BAR IS UNMEASURED — TEMPORARY VALUE. Only the RIGHT side
+//     (docs/bike-fitment.md) was put under calipers. `bar_d0`/`bar_taper`/
+//     `bar_run` are ASSUMED to mirror on the left (see the ⬜ flag at their
+//     definition below). If the owner measures the left side and it differs,
+//     the two clamps are NOT identical parts any more — split `bar_d0_l` etc.
+//     out and re-print the left clamp against its own numbers before trusting
+//     this mount on the road.
 //
 //  ⚠ THE TWO TRAPS. Both are forced by the display, not chosen. The assertions
 //     below exist so that "simplifying" either one fails the render, loudly,
@@ -17,15 +38,15 @@
 //  ⚠ THE M5 THREADS ARE 5 mm DEEP — ONE BOLT DIAMETER. M5 x 12, no washer,
 //     never longer. A bolt that bottoms feels tight and holds nothing.
 //
-//  PARTS:  gauge | yoke | arm | cap | cowl | brow_test | plate | spline_test
+//  PARTS:  gauge | yoke | arm | cap | cowl | brow_test | plate | spline_test |
+//          pivot_puck_test | yoke_leg_test | yoke_plate_test | assembly |
+//          pitch_probe_fixed | pitch_probe_arm
 //  Export: openscad -o out.stl -D 'part="gauge"' gen4-display-mount.scad
-//  ⚠ "gauge", "spline_test", "yoke", "arm" and "cap" are implemented so far
-//     (below). "cowl", "brow_test" and "plate" land in later tasks, each
-//     wired into the `part = "..."` selector at the same spot. spline_test
-//     is a throwaway proof piece for the toothed tilt joint (face_spline(),
-//     shared geometry) — it is not one of the assembled parts above; yoke
-//     and arm call face_spline() directly and never appear as "spline_test"
-//     themselves.
+//  ⚠ `arm`/`cap` are now a SHARED, SYMMETRIC clamp half — the same STL is
+//     used on BOTH sides of the bracket (proof: docs/design-notes.md's
+//     "why the clamp needs no left/right variant"). Print TWO of each. `yoke`
+//     now carries a female spline at EACH end, mirrored about its own
+//     vertical centreline, instead of one off to a side.
 //  ⭐ PNG RENDERS DON'T NEED `--render`. Timed on spline_test: ~21s with
 //     `--render 1` (forces the exact CGAL backend) vs ~0.3s with plain PNG
 //     export (OpenCSG preview) — ~70x, visually identical for every part in
@@ -114,14 +135,19 @@ yoke_t     = 8;                 // bearing-face thickness. Paired with m5_len: 1
 // the way the old design hid behind yoke_standoff's Z-offset. Clearance has
 // to come entirely from where the disc sits in Y and Z (see the ⚠ CLEAR THE
 // DISPLAY assertion below, right after `holes`/`disp_h` are in scope).
-pivot_x = p(hole_lone)[0];   // == 0: the boss grows from the display's own
-                    // vertical centreline — the same X the Y-truss already
-                    // terminates on below hole_lone (hole_lone sits there
-                    // too, by construction). The boss's own small thickness
-                    // pulls the ASSEMBLED joint a few mm off dead-centre
-                    // (its material occupies pivot_x .. pivot_x+yoke_tip_h+
-                    // base_female+spline_h, not a point) — accepted rather
-                    // than compensated in arm_crank; see docs/design-notes.md.
+//
+// ⭐ TWO-CLAMP REWORK, 2026-09-15: there is no longer a SINGLE `pivot_x`.
+// Two splines now grow from the display's centreline, one toward each
+// clamp — `pivot_x_r` (right, +X) and `pivot_x_l` (=-pivot_x_r, mirrored).
+// Both are DERIVED, not chosen: they have to land each clamp's inboard
+// (bracket-butting) face exactly at the real bracket's own two faces
+// (±bracket_half — docs/bike-fitment.md's measured 45mm bracket), which
+// needs `yoke_tip_h` and `arm_pivot_y`, both defined later in this file —
+// so, same reasoning as `pivot_z` below (a plain top-level variable resolves
+// in FILE ORDER, unlike a module/function name), the actual assignment sits
+// right after `arm_pivot_y`, near the clamp/bracket geometry it depends on,
+// not here. `pivot_y`/`pivot_z`/`pivot_clear` stay single values — the two
+// splines are coaxial (same Y, same Z), only X differs, by sign.
 pivot_y = -70;      // ⚠ CLEAR THE DISPLAY: the minimum that satisfies the
                     // assert below is -(disp_h/2+spline_od/2+pivot_clear) =
                     // -68.99 — -70 clears it with just over 1mm to spare, a
@@ -167,8 +193,26 @@ base_female = 3;                 // the yoke's own female pedestal thickness
 /* [DESIGN — COWL] the rear shroud that covers the display's edges, boot and
    fasteners, and carries the brow over the glass */
 cowl_wall  = 2.4;               // 6 perimeters at 0.4
-brow       = 19;                // ⬜ UNPROVEN. 18-20 mm; confirm with the
-                                //   throwaway brow-test piece before committing.
+brow       = 33;                // ⭐ DERIVED, 2026-09-15 (was 19, UNPROVEN —
+                                //   see docs/design-notes.md's "The sun brow"
+                                //   for why an unverified projection is
+                                //   exactly what let the old brow ship
+                                //   shading nothing). The TRUE forward
+                                //   projection PAST the glass plane
+                                //   (z=-disp_d), not off the cowl's own rear
+                                //   face — the old `brow` meant the latter,
+                                //   which is why 19mm of "projection" left
+                                //   the tip 7mm SHORT of the glass instead of
+                                //   over it. Chosen so a 45° sun still shades
+                                //   ~30mm (~32% of disp_h) of the screen,
+                                //   accounting for the visor's own underside
+                                //   sitting brow_clear (3mm) above the
+                                //   screen's own top edge — shadow =
+                                //   brow*tan(E) - brow_clear, not the flush
+                                //   brow*tan(E) a zero-offset assumption
+                                //   would give. Proven by the permanent shade
+                                //   test in tools/build.sh, not just this
+                                //   arithmetic.
 reveal     = 0.5;               // ⚠ DELIBERATE even shadow gap, cowl to display.
                                 //   Not an attempt at zero. A consistent reveal
                                 //   reads as designed; a wandering one reads as
@@ -178,25 +222,45 @@ fillet_out = 3;                 // cowl outer perimeter
 fillet_vis = 2;                 // every other visible edge
 fillet_in  = 1;                 // internal wall-to-rib junctions (anti-crack)
 
-/* [DESIGN — ARM] the handlebar-side part: clamps the tapered bar, carries the
-   male spline that mates the yoke's, and cranks the pivot back over the
-   bike's centreline. Measured on the bike — docs/bike-fitment.md. */
+/* [DESIGN — CLAMP] the handlebar-side part, ⭐ TWO OF THESE NOW (2026-09-15
+   two-clamp rework): each clamps the tapered bar and butts one face of the
+   centre bracket, carrying the male spline that mates ITS OWN end of the
+   yoke's axle. The SAME part is used on both sides — see
+   docs/design-notes.md for why mirroring it needs no separate model.
+   Measured on the bike — docs/bike-fitment.md. */
+bracket_w    = 45;          // the centre bracket's own width — a MEASURED
+                            // fact (docs/bike-fitment.md), not derived from
+                            // anything below. Both clamps butt its two
+                            // faces, ±bracket_half off the bike's centreline.
+bracket_half = bracket_w/2;
+
 bar_d0    = 32.0;   // Ø at the bracket face (the x=0 reference bore_at() uses)
 bar_taper = 0.1;    // Ø lost per mm outward. ⚠ THE BORE IS A CONE, NOT A
                     //   CYLINDER: a 1:10 taper, half-angle 2.86°. Across an
                     //   18mm clamp the diameter changes 1.8mm — ~9x print
                     //   tolerance — so a round bore would touch on a LINE at
                     //   its large end only. See bore_at() below.
+                    // ⬜ MEASURED ON THE RIGHT SIDE ONLY. The left side is
+                    //   TEMPORARILY ASSUMED to mirror it exactly (same
+                    //   bar_d0/bar_taper/bar_run) — confirm on the bike
+                    //   before printing the left clamp for real. If it
+                    //   differs, the two clamps stop being one shared part;
+                    //   split these three into `_r`/`_l` pairs and give the
+                    //   left clamp its own bore_at().
 bar_run   = 20;     // usable straight length before the bar curves upward and
-                    // becomes unusable (measured, docs/bike-fitment.md)
+                    // becomes unusable (measured, docs/bike-fitment.md;
+                    // ⬜ right side only, see bar_d0's own flag above)
 clamp_w   = 18;     // clamp width along the bar. ⚠ MUST be <= bar_run
                     // (asserted below) — it is nearly all of it on purpose,
                     // for the longest bearing length the bar allows
-clamp_x0  = 1;      // clamp's inboard face, from the bracket face — 1mm of
-                    // air so the clamp's own edge never touches the bracket
-                    // itself (the taper means it can only creep outboard from
-                    // here if it ever moves, never inboard — the bracket
-                    // blocks that mechanically)
+clamp_x0  = 0;      // clamp's inboard face, AT the bracket face — ⭐ the two
+                    // clamps now BUTT the bracket (owner's own fix: "attach
+                    // on both sides of the handlebars"), not stand 1mm clear
+                    // of it. The taper still means the clamp can only creep
+                    // OUTBOARD if it ever moves (never inboard — the bracket
+                    // blocks that mechanically), so butting costs nothing and
+                    // buys real end-location + a face the tightened clamp can
+                    // bear against instead of floating in a 1mm gap.
 shim_t    = 1.2;    // inner-tube rubber inside the bore (docs/assembly.md) —
                     // folded into bore_at() so the PRINTED bore is sized for
                     // the rubber-wrapped bar, not the bare metal
@@ -206,13 +270,9 @@ arm_len   = 45;     // pivot centre above the BAR CENTRELINE. ⚠ NOT free — s
                     // Ø40; below ~45 the spline fouls the clamp and the arm
                     // would have to reach backward instead of up. 45 is the
                     // lowest value that clears it (docs/bike-fitment.md).
-arm_crank = 32.5;   // inboard offset (toward the bike's centreline, i.e. -Y in
-                    // this part's own frame) so the screen centres on the
-                    // bike instead of sitting off to one side of it. The
-                    // bracket's right face is 22.5mm off the bike's
-                    // centreline and this 18mm clamp centres 10mm beyond
-                    // that face, so the clamp's own centre is 32.5mm off —
-                    // the arm carries that whole distance back.
+                    // UNCHANGED by the two-clamp rework — this is a per-side
+                    // clearance fact (spline vs. ITS OWN clamp body), nothing
+                    // to do with how far apart the two clamps sit.
 function bore_at(x) = bar_d0 - bar_taper*x + 2*shim_t;   // Ø of the PRINTED
                     // bore at distance x from the bracket face (same x as the
                     // table above) — the bare-bar taper plus shim_t of rubber
@@ -256,10 +316,31 @@ ear_head_d  = 9.5;  // counterbore for the M5 socket head (m5_head_d=8.5) with
 ear_cbore_h = 4.5;  // counterbore depth — leaves >=4.5mm of the ~9mm ear
                     // height below it before the clearance hole breaks
                     // through, so the head seats on real material, not air
-arm_w       = 20;   // the rising rib's own structural width (Y in this part's
-                    // frame) — same role as the yoke's yoke_arm_w, sized the
-                    // same way (comfortably over 2*fillet_vis+1, asserted via
-                    // taper_wp()'s own shared guard, not repeated here)
+arm_w       = 20;   // the rising rib's own structural width — X in this
+                    // part's frame (not Y: that stale claim predates the
+                    // ⚠ DM-6 axis rework and is corrected here, 2026-09-15,
+                    // having been found wrong while tracking down the waist
+                    // defect below — taper_wp()'s own `w` argument, which
+                    // arm_w feeds, sets the X-span of its profile; every
+                    // measured export confirms it (arm.stl's own X bbox is
+                    // exactly ±arm_w/2 through the rib)). Same role as the
+                    // yoke's leg_w, sized the same way (comfortably over
+                    // 2*fillet_vis+1, asserted via taper_wp()'s own shared
+                    // guard, not repeated here).
+clamp_riser_margin = 2;   // ⭐ WAIST FIX, 2026-09-15 — see the block comment
+                    // in arm() above Stage 1 for the defect this closes.
+                    // Inboard margin the widened riser keeps off the clamp
+                    // tube's own two Y edges (clamp_x0, clamp_x0+clamp_w), so
+                    // the riser's own flat Y walls sit INSIDE the tube's real
+                    // footprint the whole way up and weld into it, rather
+                    // than overhang it — the "fillet into the clamp tube"
+                    // shape the task asked for, not a wider free-floating fin.
+clamp_riser_y0 = clamp_x0 + clamp_riser_margin;          // 2
+clamp_riser_y1 = clamp_x0 + clamp_w - clamp_riser_margin; // 16
+                    // 14mm span, centred on the clamp's own Y-midpoint
+                    // (arm_pivot_y = clamp_x0+clamp_w/2 = 9) the same way the
+                    // old, defective single-Y riser was — this just gives it
+                    // real thickness either side instead of none.
 arm_tip_h   = 6;    // tip puck height at the pivot before the spline boss —
                     // same construction and same reasoning as the yoke's own
                     // yoke_tip_h (a small lead-in chamfer's worth of material,
@@ -824,6 +905,32 @@ module spline_test() { face_spline(male = true, base = 3); }
    closed-form frustum+disc formula. */
 module pivot_puck_test() { yoke_pivot_puck(); }
 
+/* ---- PART: yoke_leg_test -----------------------------------------------
+   ⭐ TWO-CLAMP REWORK: throwaway print/measurement of ONE connecting leg
+   alone (root, Stage A/B/C hulls, pivot puck, female spline — yoke_leg(),
+   right side) — proves the whole leg is a solid, connected body, not just
+   its two already-separately-proven sub-primitives (spline_test,
+   pivot_puck_test), before it is buried (twice, mirrored) inside the yoke.
+   tools/build.sh checks its volume against those two sub-primitives' own
+   measured volumes as a lower bound (a hollow or disconnected leg would
+   measure close to puck+spline alone; a solid one measures well past it). */
+module yoke_leg_test() { yoke_leg(); }
+
+/* ---- PART: yoke_plate_test ----------------------------------------------
+   ⭐ TWO-CLAMP REWORK: throwaway print/measurement of the bearing plate
+   alone (yoke_profile() clipped to the flat band, chamfered) — the widened
+   version of the plate (two more hull anchors, one per leg root) needs its
+   own volume checked independently before trusting the whole-yoke fill
+   sanity check that is built from it and yoke_leg_test's own volume. */
+module yoke_plate_test() {
+  chamfer_slab(yoke_t, yoke_ch)
+    offset(r = fillet_vis) offset(delta = -fillet_vis)
+      intersection() {
+        yoke_profile();
+        yoke_band_2d();
+      }
+}
+
 /* ---- PART: gauge ---------------------------------------------
    Bearing footprint only: a rounded rectangle spanning the bolt pads,
    trimmed to the flat band so it also proves the band assumption. Nothing
@@ -866,27 +973,31 @@ module gauge() {
    the three bolt pads, stands the lower arm off the chamfer beyond the band,
    and carries the female half of the tilt spline at the pivot. */
 
-yoke_arm_w    = 26;   // width of the arm's root at hole_lone — a bit over the
-                       // Ø24 pad it grows out of, because that pad's own
-                       // chord is narrower than 26 by the time it reaches
-                       // yoke_root_len below its centre (a circle, not a
-                       // rectangle) — the wider root flares the transition
-                       // into the taper instead of starting from that chord.
+leg_w    = 18;   // ⭐ TWO-CLAMP REWORK (2026-09-15): width of EACH leg's own
+                       // root, off the display's centreline at ±pivot_x_r —
+                       // no longer under hole_lone's own Ø24 pad (that pad
+                       // stays on the plate as a bolt land only; neither leg
+                       // grows out of it any more, see yoke_profile()'s own
+                       // widened hull below for how the two still union
+                       // cleanly onto the plate). 18, not the old 26: narrow
+                       // enough that both roots clear the lone M5's own
+                       // Ø9.5 socket sweep by a real margin (asserted near
+                       // pivot_x_r, below the clamp/bracket geometry it also
+                       // needs) — still comfortably over 2*fillet_vis+1
+                       // (asserted just below, same offset() trap as ever).
                        // ⚠ MUST ALSO clear 2*fillet_vis (asserted below,
                        // mirroring yoke_root_len's own guard just below): the
-                       // root is `square([yoke_arm_w, yoke_root_len])`, a
+                       // root is `square([leg_w, yoke_root_len])`, a
                        // rectangle has TWO dimensions, and the offset(r)/
                        // offset(delta=-r) collapse hits whichever one is
                        // smaller — `square([4,6])` and `square([6,4])` both
                        // come back empty. Fixing this for yoke_root_len alone
-                       // left yoke_arm_w with the identical failure, unguarded
-                       // (confirmed: yoke_arm_w=4 renders clean, exit 0, no
-                       // warning, `Volumes: 3`, bbox still a plausible
-                       // 103x90.1x20.5 — check_stl.py would not have caught
-                       // it either). 26 has huge margin today; the guard is
-                       // for whoever narrows this for weight or print time
-                       // later and has no reason to suspect an offset() trap.
-yoke_root_len =  6;    // how far (+Y, toward the plate) the arm's flush root
+                       // left this dimension with the identical failure,
+                       // unguarded (confirmed on the old single-arm value:
+                       // yoke_arm_w=4 rendered clean, exit 0, no warning,
+                       // `Volumes: 3` — check_stl.py's bbox check would not
+                       // have caught it either).
+yoke_root_len =  6;    // how far (+Y, toward the plate) each leg's flush root
                        // reaches from hole_lone's own pad — must stay inside
                        // the flat band (asserted below) so this reinforcement
                        // still bears, unlike the taper beyond it. ⚠ MUST clear
@@ -1162,6 +1273,20 @@ module yoke_profile() {
   hull() {
     for (h = [holes[0], holes[1]]) translate(p(h)) circle(d = yoke_pad_d);
     translate(p(hole_lone)) circle(d = 24);
+    // ⭐ TWO-CLAMP REWORK: two more hull anchors, one under each leg's own
+    // root (±pivot_x_r, centred on the root's own Y-span) — WITHOUT these
+    // the plate's silhouette at yoke_root_y0 is set by hole_lone's own Ø24
+    // pad alone, which only reaches to about half of leg_w/2 there (a
+    // circle, not a rectangle): the root would still UNION onto the plate
+    // (they overlap), but only by a couple of mm — a graze, not the
+    // generous, unambiguous overlap this file insists on everywhere else
+    // (ear_web()'s own bridge exists for exactly this reason). Sized
+    // leg_w+4 (2mm bigger than the root on each side) so the hull's own
+    // bulge there comfortably outgrows the root rectangle it has to cover,
+    // not just touch it.
+    for (sx = [-1, 1])
+      translate([sx * pivot_x_r, yoke_root_y0 + yoke_root_len/2])
+        circle(d = leg_w + 4);
   }
 }
 
@@ -1217,18 +1342,18 @@ assert(yoke_root_len > 2 * fillet_vis + 1,
       "the arm root silently vanishes."));
 
 // The other dimension of the SAME rectangle, and the SAME trap: fixing it
-// for yoke_root_len alone did not generalise to yoke_arm_w, and a
-// rectangle's offset(r)/offset(delta=-r) collapse hits whichever of its two
-// dimensions is smaller. Confirmed the same way: yoke_arm_w=4 with
-// everything else unchanged renders clean (exit 0, no warning), CGAL
-// `Volumes: 3`, bbox still a plausible 103x90.1x20.5 — check_stl.py's bbox
-// check would not catch it either.
-assert(yoke_arm_w > 2 * fillet_vis + 1,
-  str("ARM ROOT TOO NARROW FOR ITS OWN FILLET: yoke_arm_w (", yoke_arm_w,
+// for yoke_root_len alone did not generalise to leg_w, and a rectangle's
+// offset(r)/offset(delta=-r) collapse hits whichever of its two dimensions
+// is smaller. Confirmed the same way on the old single-arm value:
+// yoke_arm_w=4 with everything else unchanged rendered clean (exit 0, no
+// warning), CGAL `Volumes: 3` — check_stl.py's bbox check would not have
+// caught it either.
+assert(leg_w > 2 * fillet_vis + 1,
+  str("LEG ROOT TOO NARROW FOR ITS OWN FILLET: leg_w (", leg_w,
       ") leaves < 1mm clearance over 2*fillet_vis (", 2 * fillet_vis,
       ") — same offset() trap as yoke_root_len above, on the rectangle's ",
       "other dimension: EMPTY for the whole zone at or under that value, ",
-      "and the arm root silently vanishes."));
+      "and the leg root silently vanishes."));
 
 // ⚠ NOTE: there is deliberately no separate "arm root off the band" check
 // here. yoke_riser_y0 (below) is DEFINED as yoke_root_y0, and RISER TOO
@@ -1242,12 +1367,100 @@ assert(yoke_arm_w > 2 * fillet_vis + 1,
 // one that actually catches anything — dead code that reads as a safety
 // net — so RISER TOO SHORT is the one guard for both failure modes.
 
+// ⭐ TWO-CLAMP REWORK: ONE connecting leg, built once for the RIGHT side
+// (positive X, `pivot_x_r`) — root, Stage A/B/C hulls, pivot puck and female
+// spline, otherwise IDENTICAL to how the old single arm was built (see the
+// block comments above `yoke_root_y0`/`yoke_riser_y0`/`yoke_riser_y1`/
+// `yoke_approach_y` for why each stage exists — none of that changed, only
+// WHERE in X it happens: `pivot_x_r` in place of the old, single, display-
+// centred `p(hole_lone)[0]`). `yoke()` below calls this once directly for
+// the right leg and once through `mirror([1,0,0])` for the left — NOT a
+// second, hand-derived copy. This is safe (produces the CORRECT, not just a
+// plausible, left leg) for two independent reasons, both argued in
+// docs/design-notes.md: (1) every piece built here — the rectangular
+// root/risers and the round puck — is already left-right symmetric about its
+// own local X=0 axis, so mirroring reproduces the identical shape; (2) the
+// female spline's own tooth pattern (phase=0, `face_spline(male=false,...)`
+// starts its ring at theta=0 with step=7.5°, an arithmetic sequence
+// symmetric under negation) is provably self-symmetric under a mirror about
+// any plane containing its own growth axis — so the mirrored female half
+// mates its own (also self-symmetric) mirrored male half exactly as well as
+// the un-mirrored pair does, without re-deriving a second rotation by hand.
+module yoke_leg() {
+  // Root: a flush, chamfered pad on the flat band, still at yoke_root_y0
+  // (hole_lone's own Y — shared by BOTH legs, unaffected by the X move) but
+  // centred at pivot_x_r instead of under hole_lone. yoke_profile()'s own
+  // hull was widened (above) so this unions onto the plate generously, not
+  // by a graze.
+  translate([pivot_x_r - leg_w/2, yoke_root_y0, 0])
+    chamfer_slab(yoke_t, yoke_ch)
+      offset(r = fillet_vis) offset(delta = -fillet_vis)
+        square([leg_w, yoke_root_len]);
+
+  // Stage A: root -> riser top. Confined to y in
+  // [yoke_riser_y1-eps, yoke_riser_y0+eps] (a convex hull cannot exceed
+  // its inputs' own y-range) — north of the band edge by construction
+  // (yoke_riser_y1's own guard), so this stage can plunge from z=0 (the
+  // root's own bottom) up to yoke_t+yoke_standoff without any of that
+  // low-z material ever reaching the danger zone.
+  hull() {
+    taper_wp(pivot_x_r, leg_w, yoke_riser_y0, 0, yoke_t);
+    taper_wp(pivot_x_r, leg_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+  }
+
+  // Stage B: riser top -> the display's own edge, at the SAME Z-range
+  // as Stage A's own ending waypoint — a pure Y-extension, not a taper,
+  // so it cannot leak in Z (both inputs share one Z-range) the same way
+  // Stage A cannot. See yoke_approach_y's own block comment for why this
+  // stage stops exactly there and hands off to Stage C rather than
+  // reaching the puck directly.
+  hull() {
+    taper_wp(pivot_x_r, leg_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+    taper_wp(pivot_x_r, leg_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
+  }
+
+  // Stage C: the display's own edge -> the pivot puck. The one hull() that
+  // spans mismatched Z-ranges (rectangle vs the full-diameter round puck) —
+  // safe ONLY because yoke_approach_y's own assert keeps this ENTIRE stage
+  // at y <= yoke_approach_y, past the display's own housing, where a Z leak
+  // has nothing to touch (see yoke_approach_y's block comment).
+  hull() {
+    taper_wp(pivot_x_r, leg_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
+    yoke_pivot_puck();
+  }
+
+  // Female spline, growing +X off the puck. rotate([0,90,0]) turns
+  // face_spline()'s own local Z (its growth axis) into world +X; its local X
+  // and Y (the disc's own plane) land in world -Z and Y respectively, so the
+  // disc ends up in the Y-Z plane as required. Root at x=pivot_x_r+
+  // yoke_tip_h, overlapped by `eps` back into the puck for the same
+  // coincident-face reason as every other stacked-solid join in this file.
+  translate([pivot_x_r + yoke_tip_h - eps, pivot_y, pivot_z])
+    rotate([0, 90, 0])
+      face_spline(male = false, base = base_female);
+}
+
+// The right leg's own pivot-bolt clearance cuts — mirrored by yoke() below
+// for the left, same reasoning as yoke_leg() itself.
+module yoke_leg_bore() {
+  translate([pivot_x_r - eps, pivot_y, pivot_z])
+    rotate([0, 90, 0])
+      cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_len);
+  // Lead-in where the bore first breaks through real material (the puck's
+  // own root face, the end AWAY from the spline — the near face as the bolt
+  // is offered up from that side).
+  translate([pivot_x_r, pivot_y, pivot_z])
+    rotate([0, 90, 0])
+      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+}
+
 module yoke() {
   difference() {
     union() {
       // 1. Bearing face: the truss hull, clipped to the flat band, with
       //    every edge broken — in-plane (fillet_vis) and top/bottom
-      //    (yoke_ch, via chamfer_slab()).
+      //    (yoke_ch, via chamfer_slab()). UNCHANGED by the two-clamp rework
+      //    other than yoke_profile()'s own widened hull, above.
       chamfer_slab(yoke_t, yoke_ch)
         offset(r = fillet_vis) offset(delta = -fillet_vis)
           intersection() {
@@ -1255,102 +1468,31 @@ module yoke() {
             yoke_band_2d();
           }
 
-      // 2. Lower arm: a flush, chamfered root at hole_lone (still on the
-      //    band), then TWO separate, purpose-built hulls down to the pivot
-      //    tip — never one hull spanning the whole run. See the block
-      //    comments above yoke_root_y0 and yoke_riser_y0/y1 for the two
-      //    independent reasons: a single hull(root, tip) both (a)
-      //    measurably pulls the root's own flat top above yoke_t right
-      //    where the lone M5's socket needs to pass (up to 2.5mm of extra
-      //    material at the root's own southern edge, measured — see
-      //    yoke_root_y0's block comment), and (b) leaves the taper sitting
-      //    near z=0 for a long stretch of the danger zone beyond the band
-      //    (measured minimum z=0.65 across the whole
-      //    band-edge-to-display-bottom span — see yoke_riser_y0/y1's block
-      //    comment). Each waypoint below is a thin (2*eps) slice of the arm's
-      //    own rectangular footprint, existing only to pin where one hull
-      //    ends and the next begins — never rendered as a feature in its
-      //    own right.
-      translate([p(hole_lone)[0] - yoke_arm_w/2, yoke_root_y0, 0])
-        chamfer_slab(yoke_t, yoke_ch)
-          offset(r = fillet_vis) offset(delta = -fillet_vis)
-            square([yoke_arm_w, yoke_root_len]);
-
-      // Stage A: root -> riser top. Confined to y in
-      // [yoke_riser_y1-eps, yoke_riser_y0+eps] (a convex hull cannot exceed
-      // its inputs' own y-range) — north of the band edge by construction
-      // (yoke_riser_y1's own guard), so this stage can plunge from z=0 (the
-      // root's own bottom) up to yoke_t+yoke_standoff without any of that
-      // low-z material ever reaching the danger zone.
-      hull() {
-        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y0, 0, yoke_t);
-        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
-      }
-
-      // Stage B: riser top -> the display's own edge, at the SAME Z-range
-      // as Stage A's own ending waypoint — a pure Y-extension, not a taper,
-      // so it cannot leak in Z (both inputs share one Z-range) the same way
-      // Stage A cannot. See yoke_approach_y's own block comment for why this
-      // stage stops exactly there and hands off to Stage C rather than
-      // reaching the puck directly.
-      hull() {
-        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
-        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
-      }
-
-      // Stage C: the display's own edge -> the pivot puck. The one hull()
-      // that spans mismatched Z-ranges (rectangle vs the full-diameter round
-      // puck) — safe ONLY because yoke_approach_y's own assert keeps this
-      // ENTIRE stage at y <= yoke_approach_y, past the display's own
-      // housing, where a Z leak has nothing to touch (see yoke_approach_y's
-      // block comment for the full argument).
-      hull() {
-        taper_wp(p(hole_lone)[0], yoke_arm_w, yoke_approach_y, yoke_t + 1, yoke_t + yoke_standoff);
-        yoke_pivot_puck();
-      }
-
-      // 3. Female spline. ⚠ DM-6 RE-DERIVED: the axis is now X (parallel to
-      // the bar), not Z (the display's own normal) — see the block comment
-      // above pivot_x/pivot_y/pivot_z. rotate([0,90,0]) turns face_spline()'s
-      // own local Z (its growth axis) into world +X; its local X and Y (the
-      // disc's own plane) land in world -Z and Y respectively, so the disc
-      // ends up in the Y-Z plane as required. Root at x=pivot_x+yoke_tip_h,
-      // overlapped by `eps` back into the puck for the same coincident-face
-      // reason as every other stacked-solid join in this file (verified by
-      // the same Volumes:3 split before this line existed).
-      translate([pivot_x + yoke_tip_h - eps, pivot_y, pivot_z])
-        rotate([0, 90, 0])
-          face_spline(male = false, base = base_female);
+      // 2. TWO legs, mirrored about the display's own centreline (X=0) —
+      //    see yoke_leg()'s own block comment for why mirroring the whole
+      //    leg (root, risers, puck AND its female spline) is correct, not
+      //    just convenient.
+      yoke_leg();
+      mirror([1, 0, 0]) yoke_leg();
     }
 
     hole_pattern(yoke_t);
     boot_slot(yoke_t, slot_reach, yoke_top_y);
-    // Pivot bolt clearance, along X now — same diameter Task 4's arm must
-    // drill, same axis its own bore now runs along too.
-    translate([pivot_x - eps, pivot_y, pivot_z])
-      rotate([0, 90, 0])
-        cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_len);
-    // Lead-in where that bore first breaks through real material (the
-    // puck's own root face, the end AWAY from the spline — the near face as
-    // the bolt is offered up from that side) — same "chamfer, not a bare
-    // edge" treatment as hole_pattern()'s M5 countersinks, sized the same
-    // way (+1mm over 0.5mm). Everywhere else the bore only ever widens into
-    // the spline's own already-open Ø(spline_id) bore, so this one lead-in
-    // is the only edge this cut actually exposes.
-    translate([pivot_x, pivot_y, pivot_z])
-      rotate([0, 90, 0])
-        cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+    // Pivot bolt clearance, both legs.
+    yoke_leg_bore();
+    mirror([1, 0, 0]) yoke_leg_bore();
   }
 }
 
 // The pivot puck: frustum lead-in + full disc, built exactly as before (the
 // same two cylinder() calls, same yoke_ch/yoke_tip_h reasoning) but wrapped
-// in rotate([0,90,0]) so it grows along world X from (pivot_x,pivot_y,
-// pivot_z) instead of along Z from a flat plate — see the block comment
-// above pivot_x/pivot_y/pivot_z for why the axis changed and
-// docs/design-notes.md for the full history of the defect this fixes.
+// in rotate([0,90,0]) so it grows along world X from (pivot_x_r,pivot_y,
+// pivot_z) instead of along Z from a flat plate — see docs/design-notes.md
+// for the full history of the defect this fixes. Right side only — the left
+// puck is `mirror([1,0,0])` of this same shape, inside yoke_leg()'s own
+// mirrored call, not a second instance built here.
 module yoke_pivot_puck() {
-  translate([pivot_x, pivot_y, pivot_z])
+  translate([pivot_x_r, pivot_y, pivot_z])
     rotate([0, 90, 0]) {
       // Bottom rim broken the same way hole_pattern() breaks a hole's rim: a
       // short lead-in frustum, not a bare disc edge. The top stays a plain
@@ -1375,6 +1517,18 @@ assert(clamp_x0 + clamp_w <= bar_run,
   str("CLAMP EXCEEDS THE USABLE BAR: clamp_x0+clamp_w (", clamp_x0 + clamp_w,
       "mm) reaches past bar_run (", bar_run, "mm) — beyond that the bar ",
       "curves upward and is unusable. See docs/bike-fitment.md."));
+
+// ⭐ WAIST FIX, 2026-09-15. clamp_riser_margin must leave a real span, or
+// clamp_riser_y0/y1 invert and the riser collapses back toward the exact
+// defect this whole rework exists to remove — a hull() between two
+// waypoints at (nearly) the same Y is a paper-thin fin (measured on the
+// pre-fix geometry: 0.2mm, 4mm² — see arm()'s own block comment above
+// Stage 1). A strict margin, not just ">0", so a future edit gets a real
+// riser, not a technically-nonzero sliver.
+assert(clamp_riser_y1 - clamp_riser_y0 >= 10,
+  str("RISER TOO NARROW: clamp_riser_y1-clamp_riser_y0 (",
+      clamp_riser_y1 - clamp_riser_y0, "mm) is too close to the single-Y ",
+      "knife-edge this fix exists to avoid — need a real, load-bearing span."));
 
 // ⚠ SAME FORMULA, DIFFERENT (STRONGER) REASON since the ⚠ DM-6 rework. Before,
 // the spline's disc lay in the local X-Y plane (axis Z) while the clamp's own
@@ -1429,9 +1583,9 @@ assert(clamp_od - bore_at(clamp_x0) >= 4,
       "largest diameter (", bore_at(clamp_x0), ") leaves < 2mm of radial ",
       "wall at the clamp's tightest point."));
 
-// The joint's own "which of 48 clock positions" choice — arm_seat() (near
+// The joint's own "which of 48 clock positions" choice — clamp_seat() (near
 // the assembly modules below) reads this, not a hard-coded local. A plain
-// top-level parameter, not baked into arm_seat() itself, so
+// top-level parameter, not baked into clamp_seat() itself, so
 // `openscad -D arm_seat_theta=7.5 ...` can render or export the assembly at
 // a different mesh-exact tilt WITHOUT editing the file — exactly what
 // tools/build.sh's own pitch-test needs to do repeatably. Must stay an
@@ -1441,10 +1595,48 @@ assert(clamp_od - bore_at(clamp_x0) >= 4,
 // file uses.
 arm_seat_theta = 0;
 
-arm_pivot_y = clamp_x0 + clamp_w/2 - arm_crank;   // pivot centre, along the
-                    // bar axis (this part's own Y) — the clamp's own
-                    // Y-midpoint, cranked arm_crank inboard. See
-                    // arm_crank's own header comment for the derivation.
+arm_pivot_y = clamp_x0 + clamp_w/2;   // pivot centre, along the bar axis
+                    // (this part's own Y) — the clamp's own Y-midpoint. ⭐ NO
+                    // CRANK any more (2026-09-15 two-clamp rework): the old
+                    // single arm cranked this inboard so its one spline
+                    // landed on the display's own centreline; now each
+                    // clamp's spline lands wherever its own Y-midpoint seats
+                    // to (see pivot_x_r below) and the display centres
+                    // itself between the TWO pivots instead.
+
+// ⭐ TWO-CLAMP REWORK — the two pivot X-positions, DERIVED here (not chosen)
+// now that this file's own file-order rule (see pivot_y's own block comment,
+// near the top of [DESIGN — YOKE]) is satisfied: `yoke_tip_h` (1117) and
+// `spline_seat` (320) are both already assigned above this point, and so is
+// `bracket_half` (near bar_d0). This is the same closed-form clamp_seat()
+// (near the assembly modules below) always solved for the OLD single
+// arm_crank — "what local-Y offset makes the seated clamp's inboard
+// (Y=clamp_x0) face land exactly at the real bracket's own face (shared
+// X=bracket_half)" — just solved directly for pivot_x_r instead of solving
+// for arm_crank and hoping bracket_w came out to 45 (the OLD assert two
+// screens down used to check that after the fact; there is nothing left to
+// drift now, so that assert is gone too).
+//   Setting local Y = clamp_x0 = 0 (the clamp's own inboard, bracket-butting
+// face) in clamp_seat()'s translate formula and solving
+// bracket_half == 0 + (pivot_x_r + yoke_tip_h + spline_seat - arm_pivot_y)
+// for pivot_x_r gives the line below. pivot_x_l is its mirror image — see
+// docs/design-notes.md for why mirroring the whole joint (not re-deriving a
+// second rotation) is what this file actually builds.
+pivot_x_r = bracket_half - yoke_tip_h - spline_seat + arm_pivot_y;
+pivot_x_l = -pivot_x_r;
+
+// LEG ROOT CROWDS THE LONE M5's SOCKET: each leg's root (yoke_leg(), above
+// the arm/clamp assertions) sits at pivot_x_r ± leg_w/2 in X, at the SAME Y
+// hole_lone's own Ø9.5 socket sweep (m5_socket_d, defined with the yoke's
+// own assertions) occupies — the Y-only "SOCKET REACHES THE TILTED ZONE"
+// assert up there says nothing about whether the roots also crowd the
+// socket sideways, now that they are no longer centred under hole_lone.
+assert(pivot_x_r - leg_w/2 > m5_socket_d/2 + 2,
+  str("LEG ROOT CROWDS THE LONE M5's SOCKET: the leg root's own inner edge ",
+      "(x=", pivot_x_r - leg_w/2, ") comes within ",
+      pivot_x_r - leg_w/2 - m5_socket_d/2, "mm of the Ø", m5_socket_d,
+      " socket sweep centred on hole_lone (x=0) — needs >2mm clear. Narrow ",
+      "leg_w, or accept a larger pivot_x_r."));
 
 tube_ch = 1;    // lead-in bevel on the clamp tube's two open (Y) ends —
                 // cosmetic/assembly only (nothing seats against it), same
@@ -1619,17 +1811,51 @@ module arm() {
       // steep member (self-supporting) nor a true bridge (anchored at the
       // SAME height at both ends), which is the shallow overhang FDM
       // handles worst. Splitting the SAME two endpoints into a vertical
-      // riser (same Y=10 throughout, root up to the tip's own z-range) then
+      // riser (same Y throughout, root up to the tip's own z-range) then
       // a level bridge (same z-range throughout, root's own Y across to the
       // tip's Y) turns one bad-angle diagonal into one plain vertical wall
       // (trivially self-supporting) plus one true horizontal bridge
-      // (32.5mm — inside what stock FDM cooling settings typically span) —
+      // (inside what stock FDM cooling settings typically span) —
       // same net rise and run, same connected volume, printable without
       // support either way it splits. ⬜ Print `arm` and confirm before
       // trusting this over a real slicer preview.
+      //
+      // ⭐ WAIST DEFECT, found by eye by the owner ("enough material holding
+      // the clamp to the handlebars to the toothed piece... It looks very
+      // thin") and confirmed by a section scan (tools/build.sh, added
+      // 2026-09-15): this Stage-1 "vertical riser" used to be built from TWO
+      // taper_wp() waypoints at the SAME y (clamp_x0+clamp_w/2) — one at the
+      // root's own z-band, one at the bridge's. taper_wp() is ALWAYS thin
+      // (2*eps = 0.2mm) in Y by construction (it is a hull() waypoint
+      // marker, not a solid — see its own block comment); hull()ing two
+      // marker slices that share the SAME y therefore CANNOT gain any real Y
+      // thickness (a convex hull is bounded by the union of its inputs' own
+      // Y-range, the same rule this file leans on everywhere else — here it
+      // was working against the design instead of protecting it). The result
+      // measured as a genuine 0.2mm-thick, 20mm-wide fin — 4mm² of holding
+      // cross-section — running from z=19 (where the round clamp tube's own
+      // section has already tapered to nothing) up to z=27, the ENTIRE
+      // structural link from the clamp to the spline for a stretch of the
+      // load path where the spline puck itself hasn't yet grown wide enough
+      // to make up the difference. Every existing check passed: watertight,
+      // 0 boundary, 0 non-manifold, 1 component, a plausible total volume,
+      // clearance clean, render pixel-normal — because none of them measured
+      // a cross-section, only the whole part's outer skin or its total fill.
+      //   Fix: give the riser a REAL Y-span (clamp_riser_y0..clamp_riser_y1,
+      // defined with arm_w above) instead of a single Y, by hull()ing FOUR
+      // waypoints (two Y positions x the same two z-bands as before) rather
+      // than two. Both Y positions sit 2mm inboard of the clamp tube's own
+      // edges (clamp_riser_margin), so the riser's flat Y walls weld into
+      // real tube material the whole way up rather than overhang it — the
+      // "fillet into the clamp tube" the task asked for, not a wider
+      // free-floating fin. Measured after the fix (tools/build.sh's new
+      // load-path scan): minimum cross-section in this rib is now ~280mm²,
+      // comfortably over the 200mm² floor and in line with its neighbours.
       hull() {
-        taper_wp(0, arm_w, clamp_x0 + clamp_w/2, clamp_od/2 - 5, clamp_od/2 + 3);
-        taper_wp(0, arm_w, clamp_x0 + clamp_w/2, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        taper_wp(0, arm_w, clamp_riser_y0, clamp_od/2 - 5, clamp_od/2 + 3);
+        taper_wp(0, arm_w, clamp_riser_y1, clamp_od/2 - 5, clamp_od/2 + 3);
+        taper_wp(0, arm_w, clamp_riser_y0, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        taper_wp(0, arm_w, clamp_riser_y1, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
       }
       // ⚠ DM-6 RE-DERIVED: ending waypoint moves from arm_pivot_y to
       // arm_pivot_y+arm_tip_h — the puck now grows along Y (below), so its
@@ -1647,7 +1873,7 @@ module arm() {
       // this stack's own local Z (its growth axis) into local -Y, so it
       // grows from the puck's root at (0,arm_pivot_y+arm_tip_h,arm_len) down
       // to the spline's own flat back at (0,arm_pivot_y,arm_len) instead of
-      // climbing in Z off a flat plate. arm_seat() below is what lines this
+      // climbing in Z off a flat plate. clamp_seat() below is what lines this
       // local-Y axis up with the bar (and the yoke's own pivot axis) once
       // seated. Same construction and same eps overlaps as before.
       translate([0, arm_pivot_y + arm_tip_h, arm_len])
@@ -1797,8 +2023,8 @@ module cowl_outline(inset = 0) {
 
 // ---- Brow: a RISER (entirely at z>=0, behind the display's own rear
 // face, where it can never collide with the display's own housing) carrying
-// a CANTILEVER that projects `brow` mm forward at z<0, confined in Y to
-// stay clear of the display's own top edge.
+// a VISOR that projects forward at z<0, past the glass itself, confined in
+// Y to stay clear of the display's own top edge.
 //   NOT a flat slab flush with the box's own top wall projecting straight
 // out over z=0 — that was tried first and MEASURED to collide: checked with
 // check_fit.py against a plain disp_w x disp_h x disp_d display stand-in
@@ -1810,13 +2036,63 @@ module cowl_outline(inset = 0) {
 // through it. A brow rooted at the box's own top edge (Y up to
 // disp_h/2+reveal, well inside the display's own Y-range) can only ever
 // reach over the glass by first tunnelling through the housing.
-//   The fix: keep the ENTIRE z<0 cantilever at Y > disp_h/2 (clear of the
+//   The fix: keep the ENTIRE z<0 visor at Y > disp_h/2 (clear of the
 // display's own footprint), and do all the Y-travel from the box's edge up
 // to that safe band at z>=0 instead, where there is nothing to collide
 // with. Same "riser then bridge" split as the arm's own rising rib
 // elsewhere in this file (see arm()'s own block comment) — there for
 // printability, here for clearance, same shape of fix either way: one
 // bad-geometry diagonal replaced by two axis-aligned stages.
+//
+// ⭐ VISOR REWORK, 2026-09-15 (Task 2). The RISER above got the clearance
+// right; the CANTILEVER it used to carry got the JOB wrong. Owner: "The
+// 'brow' doesn't even reach across the top, the point of it was to block
+// sunlight, that blocks nothing." Measured: the old cantilever's forward
+// tip sat at z=-19; the glass is at z=-disp_d=-26. The old brow stopped
+// 7mm SHORT of the screen's own plane and never reached it, let alone
+// overhung it — the "brow projects `brow` mm" criterion this used to be
+// checked against measured the CANTILEVER's own reach off the riser, not
+// where that reach LANDED relative to the glass it was supposed to shade.
+// Zero shading, passing every check that existed (see docs/design-notes.md
+// for the fuller story and the permanent shade test in tools/build.sh that
+// exists because of it).
+//   Fix, in two parts: (1) project far enough that the tip actually clears
+// the glass plane by a real margin (see `brow`'s own derivation, top of
+// file); (2) shape it as a VISOR, not a shelf — curved in plan (a
+// superellipse: full width at the glass plane, holding most of that width
+// for most of the run, then turning back to a blunt rounded nose over the
+// last few millimetres — see brow_plan_n for why the curve is full rather
+// than the straight taper this first was) and curved in section (thinner at
+// the sides than the centre) — built as a chain of hull()s between successively
+// smaller, forward-shifted 2D profiles, NEVER one hull() spanning root to
+// tip directly (the same convex-hull-leak discipline as taper_wp()'s own
+// waypoints and chamfer_slab()'s own multi-slice bevel — a single hull
+// between a tall root rectangle and a small forward tip would leak height
+// forward and depth backward exactly the way this file's own historical
+// yoke-arm bugs did). Every station's own profile keeps its UNDERSIDE
+// tangent at the SAME Y (brow_y0) by construction (each circle's own centre
+// sits brow_y0+radius above brow_y0, so its bottom is always exactly
+// brow_y0) — deliberate, not incidental: it is the one surface the shading
+// derivation is measured against, and it stays level and known across the
+// whole visor, not just at the centreline.
+//   The visor is SOLID, not a hollow cowl_wall shell like the rest of the
+// part. A shape that tapers from a 10mm-tall root down to a ~2mm sliver at
+// the sides and a single small circle at the tip cannot support a uniform
+// 2.4mm wall without the offset() collapsing to nothing partway along it —
+// the same offset()-collapse trap yoke_root_len/leg_w/brow_root's own
+// fillet guards exist to catch, here avoided by not attempting a wall at
+// all where the material itself is already thinner than one. This is the
+// SAME choice the original design already made at its own tip ("a solid
+// end-cap remains there"), just applied over more of the feature because
+// this shape tapers throughout rather than only at the very end. The RISER
+// keeps its own full cowl_wall shell, unchanged — only the part that is too
+// thin to hollow honestly goes solid. Checked, not assumed: the riser's own
+// cavity still reaches the exterior through its Y-overlap with the MAIN
+// BOX's cavity (riser_y0 sits inside the box's own footprint — see
+// riser_y0's own comment), independent of whatever the visor does, so
+// making the visor solid cannot reproduce the historical sealed-cavity
+// defect described below — confirmed by the exported part's own component
+// count, not just this argument.
 brow_clear = 3;    // Y clearance the CANTILEVER keeps above the display's
                    // own CONFIRMED top edge (disp_h/2) — deliberately not
                    // zero: this repository has no data on the housing's
@@ -1849,6 +2125,75 @@ cant_lap = 2 * cowl_wall;   // cantilever's own overlap into the riser, past
                    // inside the riser's own solid volume — a guaranteed
                    // bond, not a graze.
 
+// ⭐ THE PLAN CURVE IS A SUPERELLIPSE, AND ⭐ WIDTH — NOT PROJECTION — IS
+// WHAT SHADES. Both facts are measured, by tools/check_shade.py, not
+// reasoned:
+//   · An earlier visor put two hand-placed stations on a straight taper
+//     (half-width 50 at 10mm past the glass, 30 at 25mm, a point at 33mm).
+//     It shaded 14.8% of the screen at 45 degrees of sun elevation.
+//   · Stretching THAT shape's projection from 33mm to 45mm moved 45-degree
+//     shade to 17.2%, and to 60mm moved it to 20.4% — while the shadow's
+//     own depth down the screen did not move at all (14.1mm in every case).
+//     Nearly doubling the nose bought ~5 points of shade.
+// The reason is geometric: a row of screen is shaded only where the visor
+// is actually OVER it, so a visor that has already tapered to a 2mm-wide
+// spike by mid-projection leaves the screen's own outer columns in full
+// sun no matter how far that spike reaches.
+//
+// So the taper is now a superellipse in plan — half-width brow_halfw(p) at
+// projection p past the glass — which holds close to full width for most
+// of the run and then turns back over the last few millimetres into a
+// blunt, rounded nose. Same total projection, same rounded silhouette the
+// owner asked for, roughly 25% shade at 45 degrees instead of 14.8%.
+// ⚠️ The exponent is the lever: RAISING brow_plan_n squares the plan curve
+// off (more shade, blockier nose), LOWERING it toward 2 makes a sleek
+// ellipse (less shade). Move it and re-run tools/check_shade.py — the
+// build gate's own 20% floor at 45 degrees is what holds the tradeoff.
+brow_plan_n   = 3;    // superellipse exponent of the visor's own plan curve
+brow_stations = 14;   // lofted stations from the glass plane to the tip;
+                      // spaced by sin() so they CLUSTER at the nose, where
+                      // the curve turns fastest and a coarse spacing would
+                      // read as a chamfered beak instead of a round one.
+                      // 14, not 8: each hull() between two stations is a
+                      // RULED (straight-sided) surface, so the station count
+                      // is the curve's own resolution. At 8 the facets were
+                      // visible along the nose in a profile render.
+brow_d_c      = 7;    // section thickness (Y) on the centreline
+brow_d_s      = 3;    // section thickness (Y) at the visor's own outer edge
+                      // — 3, not the old 2: the outer edge now carries real
+                      // span rather than dying as a spike, so it is a
+                      // cantilevered wing and gets wall, not a witness line.
+
+brow_edge_x = disp_w/2 + reveal - brow_d_s/2;   // half-width of the visor's
+                   // own widest station (at the glass plane), chosen so that
+                   // station comes out EXACTLY as wide as the full-width root
+                   // slab it grows from: 2*brow_edge_x + brow_d_s == the
+                   // cowl's own outside width.
+                   //   ⚠ THIS WAS disp_w/2 - disp_corner_r (= 71), on the
+                   // reasoning that the cowl's own R9 top corners are already
+                   // curving away past that X. That reasoning does not apply
+                   // to this feature: the visor's whole Y-range (brow_y0 ..
+                   // brow_y1) sits ABOVE the box's own top edge
+                   // (disp_h/2 + reveal), where what carries it is the RISER —
+                   // which is a plain full-width slab with no corner radius at
+                   // all. So 71 left the visor 9.5mm per side narrower than
+                   // its own support for no reason, and the width step where
+                   // the root met the first station showed as a visible crease
+                   // in plan view. Matching them removes the crease and is
+                   // worth ~4 points of measured shade (tools/check_shade.py).
+brow_tip_z  = -(disp_d + brow);   // the visor's own forward-most point, Z
+                   // — `brow` (top of file) is now the TRUE forward
+                   // projection PAST the glass plane (z=-disp_d), not off
+                   // the cowl's own rear face; see its own derivation.
+
+// Projection (mm past the glass) of station i, and the half-width there.
+// pow()'s own argument is clamped at 0 so the tip station cannot go
+// imaginary on a rounding error at p == brow.
+function brow_p(i)     = brow * sin(90 * i / brow_stations);
+function brow_halfw(p) = brow_edge_x *
+    pow(max(0, 1 - pow(p / brow, brow_plan_n)), 1 / brow_plan_n);
+function brow_z(p)     = -(disp_d + p);
+
 assert(cant_lap < riser_h,
   str("BROW LAP TOO DEEP: cant_lap (", cant_lap, ") must stay under riser_h (",
       riser_h, ") or the cantilever's own overlap reaches past the riser's ",
@@ -1859,17 +2204,30 @@ assert(brow_root > 2*fillet_vis + 1,
       ") — same offset() collapse as yoke_root_len/yoke_arm_w elsewhere in ",
       "this file: EMPTY for the whole zone at or under that value, not a ",
       "smaller radius, and the brow's own root silently vanishes."));
-assert(2*fillet_vis < brow + cant_lap,
-  str("BROW TOO SHORT FOR ITS OWN CHAMFER: brow (", brow, ") + cant_lap (",
-      cant_lap, ") = ", brow + cant_lap, " must exceed 2*fillet_vis (",
-      2*fillet_vis, ") or chamfer_slab's own top/bottom bevels invert into ",
-      "each other. Still true at the low end of the unproven 18-20mm range."));
+assert(brow_tip_z < brow_z(0) && brow_z(0) < cant_lap,
+  str("VISOR RUN OUT OF ORDER: root (z=", cant_lap, ") -> glass plane (z=",
+      brow_z(0), ") -> tip (z=", brow_tip_z, ") must strictly deepen, or the ",
+      "hull() chain between them folds back on itself instead of reaching ",
+      "forward over the glass."));
+for (i = [0 : brow_stations - 1])
+  assert(brow_p(i) < brow_p(i + 1) &&
+         brow_halfw(brow_p(i)) > brow_halfw(brow_p(i + 1)),
+    str("VISOR STATIONS DON'T SWEEP FORWARD AND IN: station ", i, " (p=",
+        brow_p(i), ", half-width ", brow_halfw(brow_p(i)), ") -> station ",
+        i + 1, " (p=", brow_p(i + 1), ", half-width ",
+        brow_halfw(brow_p(i + 1)), ") must both deepen AND narrow. A station ",
+        "that widens makes the lofted surface bulge outward partway along ",
+        "the visor instead of sweeping back to the corner."));
+assert(brow_edge_x + brow_d_s/2 <= disp_w/2 + reveal,
+  str("VISOR WIDER THAN THE COWL: the widest station reaches x=",
+      brow_edge_x + brow_d_s/2, ", past the cowl's own half-width (",
+      disp_w/2 + reveal, "). The visor would overhang the box's own side ",
+      "wall as a lip instead of blending into its rounded corner."));
 
-// The riser: PART OF THE SAME UNIFORM-cowl_wall SHELL as the box and the
-// cantilever, not a solid gusset — its own cavity (below) overlaps BOTH the
-// box's main cavity (at its low, riser_y0 end) AND the cantilever's cavity
-// (at its high, brow_y1 end) in 3D, so all three become ONE continuous void
-// with ONE connected outer boundary.
+// The riser: PART OF THE SAME UNIFORM-cowl_wall SHELL as the box, not a
+// solid gusset — its own cavity overlaps the box's main cavity (at its low,
+// riser_y0 end) so both become ONE continuous void with ONE connected outer
+// boundary, independent of the (solid) visor beyond it.
 //   ⚠ THIS MATTERS, NOT JUST FOR THE WALL CRITERION. A first version made
 // the riser SOLID and stopped the cantilever's own cavity dead at z=0 —
 // that cavity, capped at every side (tip, walls, AND the solid riser),
@@ -1880,10 +2238,9 @@ assert(2*fillet_vis < brow + cant_lap,
 // pieces individually pass every other check (watertight, 0 boundary, 0
 // non-manifold — a sealed internal bubble is a perfectly valid closed
 // surface on its own), so ONLY the connected-component count catches it.
-// Hollowing the riser too — so every cavity in this part connects to every
-// other — fixes both problems (the wall criterion and the component count)
-// with the same change, matching how the box's own cavity already stays
-// open to the exterior rather than sealed.
+// Hollowing the riser and letting it reach the box's own (already-open)
+// cavity through their Y-overlap — rather than depending on a hollow visor
+// beyond it, which no longer exists — is what keeps this fixed now.
 module cowl_brow_riser_outer() {
   translate([0, (riser_y0 + brow_y1)/2, 0])
     linear_extrude(riser_h)
@@ -1899,70 +2256,100 @@ module cowl_brow_riser_inner() {
           square([disp_w + 2*reveal, brow_y1 - riser_y0], center = true);
 }
 
-// Outer (visible) cantilever surface: R2 (fillet_vis) edge-break at both Z
-// ends — the leading tip (the one that actually matters) and the buried lap
-// end (harmless, embedded in the riser either way).
-module cowl_brow_outer() {
-  translate([0, (brow_y0 + brow_y1)/2, -brow])
-    chamfer_slab(brow + cant_lap, fillet_vis)
-      offset(r = fillet_vis) offset(delta = -fillet_vis)
-        square([disp_w + 2*reveal, brow_root], center = true);
+// One station's own 2D profile (X-Y plane), drawn directly at world Y (not
+// centred — every circle's own centre is placed brow_y0+radius up, so its
+// OWN bottom tangent is always exactly brow_y0, the visor's one shared,
+// known underside — see the block comment above for why that is load-
+// bearing for the shading derivation, not incidental). `pts` is a list of
+// [x, d] pairs; hull() of circles is the same "smooth, provably convex
+// silhouette" technique yoke_profile() already uses for the bearing plate's
+// own truss, applied here instead of a hand-rolled curve — inherently
+// smooth everywhere, no separate fillet_vis edge-break needed on top of it.
+module brow_station(pts) {
+  hull()
+    for (pt = pts)
+      translate([pt[0], brow_y0 + pt[1]/2])
+        circle(d = pt[1]);
 }
 
-// Inner cavity, uniformly eroded by cowl_wall from the outer — same
-// principle as cowl_outline(), applied to the cantilever's own smaller
-// profile. Stops cowl_wall short of the leading tip (z=-brow) so a solid
-// end-cap remains there (same "cap it like the box's own back" idea as the
-// main box), and runs PAST z=0 into the riser's own cavity (cowl_brow_riser_
-// inner(), above) so the two connect into one air space rather than two
-// separately-sealed pockets — see that module's own comment for why a
-// sealed pocket here is a real defect, not a cosmetic nitpick.
-module cowl_brow_inner() {
-  translate([0, (brow_y0 + brow_y1)/2, -brow + cowl_wall])
-    linear_extrude(brow - cowl_wall + eps)
-      offset(delta = -cowl_wall)
+// A thin (2*eps) Z-slice of a 2D profile, positioned at world Z=z — the
+// same "hull() waypoint" role taper_wp() plays elsewhere in this file, just
+// extruded along Z (this part's own established loft axis) instead of Y.
+module brow_slice(z) {
+  translate([0, 0, z]) linear_extrude(2 * eps) children(0);
+}
+
+// The station at projection p: a lens spanning the superellipse's own
+// half-width there, thick on the centreline and thin at its own two edges.
+// At the tip the half-width is 0 and the lens collapses to the single
+// centreline circle — asked for explicitly rather than left to a zero-
+// offset hull(), which OpenSCAD would take as two coincident circles.
+module brow_station_at(p) {
+  w = brow_halfw(p);
+  brow_station(w < brow_d_s/2
+                 ? [[0, brow_d_c]]
+                 : [[0, brow_d_c], [w, brow_d_s], [-w, brow_d_s]]);
+}
+
+// Outer (visible) visor surface: a chain of PAIRWISE hull()s — root ->
+// glass plane -> station 1 -> ... -> tip — never one hull() spanning the
+// whole run, which would span the superellipse's own concavity and hand
+// back the straight taper this shape exists to replace. Solid; see the
+// block comment above for why this feature does not get its own cowl_wall
+// shell.
+module cowl_brow_outer() {
+  // Root: the full-width slab where the visor leaves the riser, swept
+  // forward to the glass plane — this stretch is over the display's own
+  // box and shades nothing; it is the wrap into the cowl's rounded corner.
+  hull() {
+    brow_slice(cant_lap - eps)
+      translate([0, (brow_y0 + brow_y1)/2])
         offset(r = fillet_vis) offset(delta = -fillet_vis)
           square([disp_w + 2*reveal, brow_root], center = true);
+    brow_slice(brow_z(0)) brow_station_at(0);
+  }
+  // Everything past the glass plane: the part that actually shades.
+  for (i = [0 : brow_stations - 1])
+    hull() {
+      brow_slice(brow_z(brow_p(i)))     brow_station_at(brow_p(i));
+      brow_slice(brow_z(brow_p(i + 1))) brow_station_at(brow_p(i + 1));
+    }
 }
 
-// ---- Bottom opening: ONE wide notch, the yoke's arm through the middle,
-// the loom beside it — not two notches (criterion). Open to the display's
-// own bottom edge and well beyond (the arm and loom both continue past the
-// cowl's own footprint, down to the pivot and the handlebar).
+// No cavity for the visor any more — it is SOLID (see the block comment
+// above cowl_brow_outer()'s own history for why); cowl()'s own difference()
+// simply subtracts nothing for this feature. Kept as a callable no-op, not
+// deleted, so cowl()'s own difference() list does not need to know whether
+// this feature happens to be hollow this week.
+module cowl_brow_inner() {}
+
+// ---- Bottom opening: ONE wide notch, BOTH legs and BOTH clamps through the
+// middle, the loom beside them — not four notches. Open to the display's own
+// bottom edge and well beyond (the legs, clamps and loom all continue past
+// the cowl's own footprint, down to the two pivots and the handlebar).
 //
-// ⚠ ASYMMETRIC, since the ⚠ DM-6 rework (2026-09-14) — it was a symmetric
-// ±open_w/2 before. With the spline axis now X (parallel to the bar, not
-// the display's own normal — see the block comment above
-// pivot_x/pivot_y/pivot_z), the ARM's own clamp reaches out along shared X
-// instead of into depth, and — unlike the old pivot, which sat dead centre
-// — it reaches ONE-SIDED, by a real, fixed amount that does not depend on
-// arm_seat_theta (rotating about the hinge axis cannot move anything ALONG
-// that axis): every point on the arm ends up at shared X =
-// (pivot_x + yoke_tip_h + spline_seat - arm_pivot_y) + its own local Y, and
-// the clamp's own local Y never goes negative, so the clamp only ever sits
-// at MORE positive shared X than the pivot, never less. A symmetric opening
-// sized to cover that reach on both sides would cut away nearly twice the
-// material actually needed.
-arm_seat_x_reach = pivot_x + yoke_tip_h + spline_seat - arm_pivot_y + clamp_x0 + clamp_w;
-                 // the clamp tube's own far (Y=clamp_x0+clamp_w) end,
-                 // mapped through arm_seat()'s own (theta-independent-in-X)
-                 // formula — not eyeballed. Matches the seated arm/cap's
-                 // own measured bbox max (49.206) to ~0.1mm; the small gap
-                 // is the ear boss/chamfer detail this plain-tube formula
-                 // does not model (task report has the positioned-export
-                 // numbers this was checked against).
-open_x0 = -(spline_od/2 + 5);      // left edge: clears the female disc's
-                 // own reach near shared X=pivot_x≈0 by 5mm — same value the
-                 // old symmetric open_w (=50, half=25) gave, kept unchanged
-                 // since nothing on this side of the opening moved.
-open_x1 = arm_seat_x_reach + 6;    // right edge: clears the seated clamp
-                 // with 6mm to spare over the ~0.1mm formula-vs-measured
-                 // gap above — checked for real against the exported
-                 // yoke/arm/cap STLs with check_fit.py (see the report),
-                 // not trusted from this arithmetic alone: a hull()-based
-                 // taper does not interpolate its cross-section linearly
-                 // along its own axis, per taper_wp()'s own block comment
-                 // on exactly this failure mode.
+// ⭐ SYMMETRIC again, ⭐ TWO-CLAMP REWORK (2026-09-15) — simpler than the
+// single-arm design's own asymmetric opening (docs/design-notes.md's DM-6
+// history): with a leg AND a clamp reaching out to EACH side now, by
+// construction the same distance (pivot_x_l = -pivot_x_r), the opening only
+// needs one half-width, mirrored, instead of two independently-derived
+// edges. clamp_seat_x_reach is the same "clamp tube's own far end, mapped
+// through the seating transform" quantity the old design used, just without
+// the asymmetric bookkeeping arm_pivot_y's own crank used to need.
+clamp_seat_x_reach = pivot_x_r + yoke_tip_h + spline_seat - arm_pivot_y + clamp_x0 + clamp_w;
+                 // the clamp tube's own far (local Y=clamp_x0+clamp_w) end,
+                 // mapped through clamp_seat()'s own (theta-independent-in-X)
+                 // formula — not eyeballed. Checked for real against the
+                 // positioned/exported yoke+arm+cap STLs with check_fit.py
+                 // (see the task report for the measured bbox), not trusted
+                 // from this arithmetic alone.
+open_half = clamp_seat_x_reach + 6;   // half-width: clears the seated clamp
+                 // with 6mm to spare (same margin the old design used on its
+                 // one open side) — also clears the Ø40 spline puck
+                 // (pivot_x_r+yoke_tip_h+base_female+spline_h, well inside
+                 // clamp_seat_x_reach) with room to spare, asserted below.
+open_x0 = -open_half;
+open_x1 =  open_half;
 open_y0 = -22;   // upper edge of the opening, model Y. Below this (more
                  // negative than yoke_riser_y1=-24.41) the yoke's Stage-B
                  // taper actually widens toward the pivot and needs the
@@ -1971,16 +2358,20 @@ open_y0 = -22;   // upper edge of the opening, model Y. Below this (more
                  // inside cowl_depth — so a plain wall clears it with no
                  // opening needed. -22 sits north of that boundary by
                  // 2.41mm (an intentional small margin, not the boundary
-                 // itself) and clear of the M3 boss band below it.
+                 // itself) and clear of the M3 boss band below it. UNCHANGED
+                 // by the two-clamp rework — this is Y-only staging, the
+                 // same for both legs.
 
-assert(-open_x0 > spline_od/2 + 3,
-  str("OPENING TOO NARROW ON THE LEFT: -open_x0 (", -open_x0, ") clears the ",
-      "Ø", spline_od, " spline puck by only ", -open_x0 - spline_od/2,
+assert(open_half > pivot_x_r + yoke_tip_h + base_female + spline_h + 3,
+  str("OPENING TOO NARROW FOR THE SPLINE PUCK: open_half (", open_half,
+      ") clears the puck's own far reach (",
+      pivot_x_r + yoke_tip_h + base_female + spline_h, ") by only ",
+      open_half - (pivot_x_r + yoke_tip_h + base_female + spline_h),
       "mm — needs >3mm."));
-assert(open_x1 > arm_seat_x_reach + 1,
-  str("OPENING TOO NARROW ON THE RIGHT: open_x1 (", open_x1, ") clears the ",
-      "seated clamp's own reach (", arm_seat_x_reach, ") by only ",
-      open_x1 - arm_seat_x_reach, "mm — needs >1mm."));
+assert(open_half > clamp_seat_x_reach + 1,
+  str("OPENING TOO NARROW FOR THE SEATED CLAMP: open_half (", open_half,
+      ") clears the seated clamp's own reach (", clamp_seat_x_reach,
+      ") by only ", open_half - clamp_seat_x_reach, "mm — needs >1mm."));
 
 // Rounded on its two upper (visible, re-entrant) corners at fillet_vis —
 // "every other visible edge". The two lower corners run off the model into
@@ -2031,11 +2422,12 @@ m3_boss_d   = 8;     // (8-3.4)/2 = 2.3mm of ASA on every side of the
                      // own margin conventions elsewhere in this file.
 m3_boss_len = 14;    // real bearing length for the screw, not just a thin
                      // washer-plate.
-// ⚠ ONE PER SIDE OF THE (now asymmetric, ⚠ DM-6 rework) OPENING, not a
-// symmetric ±m3_x any more — each boss sits just outside ITS OWN edge of
-// open_x0/open_x1, with 2mm of solid wall between the opening's cut edge
-// and the boss's own bore, so the M3 clearance hole never breaks into the
-// opening on either side.
+// ONE PER SIDE OF THE OPENING — symmetric again, ⭐ TWO-CLAMP REWORK
+// (open_x0/open_x1 are now ±open_half): each boss sits just outside ITS OWN
+// edge, with 2mm of solid wall between the opening's cut edge and the
+// boss's own bore, so the M3 clearance hole never breaks into the opening
+// on either side. Written from open_x0/open_x1 rather than ±open_half
+// directly so nothing here needs to know or care that they are symmetric.
 m3_x_left  = open_x0 - m3_boss_d/2 - 2;
 m3_x_right = open_x1 + m3_boss_d/2 + 2;
 m3_y0  = open_y0 - 2;                  // boss's lower (open, driver-access)
@@ -2194,18 +2586,15 @@ module bar_stub() {
               h  = bar_run + bar_stub_over);
 }
 
-// The 45 mm centre bracket the clamp butts against (docs/bike-fitment.md).
-// Width is DERIVED, not retyped: arm_crank cranks the pivot back from the
-// clamp's own midpoint (arm-local Y=clamp_x0+clamp_w/2) past the bracket's
-// own right face (Y=0) to the true bike centreline -- so that centreline
-// sits bracket_half behind Y=0, and a bracket centred on it, reaching back
-// out to its own right face, is 2*bracket_half wide.
-bracket_half = arm_crank - clamp_x0 - clamp_w/2;
-bracket_w    = 2 * bracket_half;
-assert(abs(bracket_w - 45) < 0.01,
-  str("BRACKET WIDTH DRIFTED FROM docs/bike-fitment.md's STATED 45mm: got ",
-      bracket_w, "mm from arm_crank/clamp_x0/clamp_w -- the doc and the ",
-      "model have gone out of sync."));
+// The 45 mm centre bracket both clamps butt against (docs/bike-fitment.md).
+// bracket_w/bracket_half are defined early now (near bar_d0) as the MEASURED
+// fact `pivot_x_r` is derived FROM — ⭐ TWO-CLAMP REWORK: there is nothing
+// left to drift out of sync here (the old design derived bracket_w FROM
+// arm_crank and asserted it still came out to 45; this design goes the other
+// way, computing pivot_x_r from the measured 45mm directly, so a mismatch is
+// no longer even expressible). Drawn centred on the bike's own centreline,
+// reaching bracket_half either way — the RIGHT clamp butts its +Y-facing
+// (right) face at local Y=0, the mirrored LEFT clamp butts the other.
 module bracket_stub() {
   translate([-25, -bracket_w, -25])
     cube([50, bracket_w, 50]);
@@ -2286,31 +2675,59 @@ module bracket_stub() {
 // check_fit.py run: those never boolean yoke against arm at all, precisely
 // because a whole-spline-ring boolean is not trustworthy on this geometry
 // — see docs/spline-verification.md §3/§5. The female's own flat back sits
-// at shared x=pivot_x+yoke_tip_h (it grows from there, not from pivot_x
+// at shared x=pivot_x_r+yoke_tip_h (it grows from there, not from pivot_x_r
 // itself — see yoke_pivot_puck()), so the male's target is
-// pivot_x+yoke_tip_h+spline_seat, not pivot_x+spline_seat. The omission was
-// a 6mm (=yoke_tip_h) error that put the male's own solid base disc 1.7mm
-// deep into the female's, at every angle sampled — task report has the
+// pivot_x_r+yoke_tip_h+spline_seat, not pivot_x_r+spline_seat. The omission
+// was a 6mm (=yoke_tip_h) error that put the male's own solid base disc
+// 1.7mm deep into the female's, at every angle sampled — task report has the
 // before/after rod-probe numbers) solved together, not two separate
 // corrections layered on top of each other — derivation and the algebra
 // that collapses it to this closed form: task report.
-module arm_seat() {
+//
+// ⭐ TWO-CLAMP REWORK — ONE side, mirrored, not two hand-derived seatings.
+// `clamp_seat(side)` seats the SAME clamp (arm()+cap(), self-symmetric —
+// see yoke_leg()'s own block comment for the argument) against EITHER
+// female spline: `side=1` (right, `pivot_x_r`) runs exactly the translate/
+// rotate derived above; `side=-1` (left) is `mirror([1,0,0])` of that same
+// result, not a second rotation solved from scratch. This is safe for
+// `theta` specifically because mirroring about the plane X=0 COMMUTES with
+// a rotation about the shared X axis: writing M=diag(-1,1,1) (the mirror)
+// and Rx(theta) (the rotate([theta,0,0]) below), M is a pure reflection
+// (det M=-1) whose own axis (X) IS the rotation axis, and for any reflection
+// M, M·Rx(theta)·M⁻¹ = Rx(M·x̂, -theta) = Rx(-x̂, -theta) = Rx(x̂, theta) —
+// negating both the axis and the angle cancels, so M·Rx(theta) = Rx(theta)·M
+// exactly. Physically: both clamps bolt to the SAME real, non-rotating bar,
+// so their apparent motion in the yoke's own (fixed) frame has to be the
+// IDENTICAL rotation, not mirror-opposite ones — which is exactly what this
+// commutation gives, confirmed against the actual exported geometry by the
+// SAME pitch-acceptance test this file already runs (tools/build.sh), not
+// trusted on the algebra alone. See docs/design-notes.md for the parallel
+// argument for WHY the mirrored clamp part itself, and its male spline's
+// tooth phase, reproduce the correct shape with no re-derivation either.
+module clamp_seat(side = 1) {
+  assert(side == 1 || side == -1,
+    "clamp_seat(): `side` must be 1 (right) or -1 (left) — no default beyond the right side, so a caller can never silently seat neither/both.");
   theta = arm_seat_theta;
 
-  // Re-derived for the corrected R0 (see the block comment above): with
-  // R0·ẑ=+ŷ, pinning the pivot point fixed under Rx(theta) needs a MINUS
-  // sign on the arm_len terms below (was +, under the old, wrong-signed
-  // R0) — same "translate -> rotate(theta) -> rotate(R0)" closed form,
-  // re-solved algebraically for the new R0 (task report has the algebra),
-  // not just sign-flipped by guesswork.
-  translate([
-    pivot_x + yoke_tip_h + spline_seat - arm_pivot_y,
-    pivot_y - arm_len * cos(theta),
-    pivot_z - arm_len * sin(theta)
-  ])
-    rotate([theta, 0, 0])
-      rotate([0, -90, -90])
-        children();
+  module seat_right() {
+    // Re-derived for the corrected R0 (see the block comment above): with
+    // R0·ẑ=+ŷ, pinning the pivot point fixed under Rx(theta) needs a MINUS
+    // sign on the arm_len terms below (was +, under the old, wrong-signed
+    // R0) — same "translate -> rotate(theta) -> rotate(R0)" closed form,
+    // re-solved algebraically for the new R0 (task report has the algebra),
+    // not just sign-flipped by guesswork.
+    translate([
+      pivot_x_r + yoke_tip_h + spline_seat - arm_pivot_y,
+      pivot_y - arm_len * cos(theta),
+      pivot_z - arm_len * sin(theta)
+    ])
+      rotate([theta, 0, 0])
+        rotate([0, -90, -90])
+          children();
+  }
+
+  if (side == 1) seat_right() children();
+  else mirror([1, 0, 0]) seat_right() children();
 }
 
 /* ---- PARTS: pitch_probe_fixed / pitch_probe_arm ---------------------
@@ -2325,7 +2742,7 @@ module arm_seat() {
    split apart (trimesh .split()) and are told apart unambiguously by
    volume/radius alone, with no fragile length- or position-based guessing.
 
-   pitch_probe_fixed — built directly, untouched by arm_seat(), so its two
+   pitch_probe_fixed — built directly, untouched by clamp_seat(), so its two
    rods are the FIXED references every theta is measured against:
      - "normal" (Ø4, along shared -Z): the display's own face normal —
        display/yoke/cowl share this frame with no transform of their own.
@@ -2334,7 +2751,7 @@ module arm_seat() {
        pitch_probe_arm's own "axis" rod below); not itself expected to
        track pitch.
 
-   pitch_probe_arm — carried through arm_seat(), so its own two rods land
+   pitch_probe_arm — carried through clamp_seat(), so its own two rods land
    wherever the CURRENT `arm_seat_theta` puts them:
      - "reach" (Ø4, arm-local Z — "up off the bore", the direction the
        rising rib climbs to reach the pivot): NOT parallel to the hinge
@@ -2380,8 +2797,16 @@ module pitch_probe_fixed() {
       translate([0, 0, rod_gap])
         cylinder(d = 2, h = rod_len);
 }
+// ⭐ TWO-CLAMP REWORK: probes the RIGHT clamp seat only (clamp_seat(1)) — the
+// same one the pitch test always used. The LEFT clamp is proven to pitch
+// IDENTICALLY by the commutation argument in clamp_seat()'s own block
+// comment (mirroring about X=0 commutes with a rotation about the shared X
+// axis), not by re-running this probe a second time; the spline-mesh proof
+// for the LEFT joint specifically is the rod-probe method
+// (docs/spline-verification.md §4) applied to the mirrored geometry — see
+// the task report for that run.
 module pitch_probe_arm() {
-  arm_seat() {
+  clamp_seat(1) {
     // reach: arm-local +Z ("up off the bore").
     color("Orange")
       translate([0, 0, rod_gap])
@@ -2400,17 +2825,26 @@ module pitch_probe_arm() {
    clamps to -- distinct colour per part (house rule: same material, a
    monochrome render is hard to interpret) so the pieces read separately.
    The display/yoke/cowl already share one frame with no transform between
-   them (docs/design-notes.md); the arm/cap/bar/bracket are seated by
-   arm_seat() above. */
+   them (docs/design-notes.md); the two clamps/caps/bar segments are seated
+   by clamp_seat(1) (right) and clamp_seat(-1) (left) above -- ⭐ TWO-CLAMP
+   REWORK: both are the SAME arm()/cap() part (see yoke_leg()'s own block
+   comment for why one part serves both sides), just seated twice. The
+   bracket stand-in is drawn once only, under the right seat -- it is one
+   real physical object spanning both clamps, not two. */
 module assembly() {
   color("DimGray")      display_stub();
   color("Gold")         yoke();
   color("Crimson")      cowl();
-  arm_seat() {
+  clamp_seat(1) {
     color("RoyalBlue")    arm();
     color("SeaGreen")     cap();
     color("Silver")       bar_stub();
     color("SaddleBrown")  bracket_stub();
+  }
+  clamp_seat(-1) {
+    color("RoyalBlue")    arm();
+    color("SeaGreen")     cap();
+    color("Silver")       bar_stub();
   }
 }
 
@@ -2510,6 +2944,8 @@ part = "gauge";
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
 else if (part == "pivot_puck_test") pivot_puck_test();
+else if (part == "yoke_leg_test") yoke_leg_test();
+else if (part == "yoke_plate_test") yoke_plate_test();
 else if (part == "yoke") yoke();
 else if (part == "arm") arm();
 else if (part == "cap") cap();
@@ -2520,4 +2956,4 @@ else if (part == "plate") plate();
 else if (part == "pitch_probe_fixed") pitch_probe_fixed();
 else if (part == "pitch_probe_arm") pitch_probe_arm();
 else assert(false,
-  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, pivot_puck_test, yoke, arm, cap, cowl, brow_test, assembly, plate, pitch_probe_fixed, pitch_probe_arm"));
+  str("UNKNOWN PART \"", part, "\" — implemented so far: gauge, spline_test, pivot_puck_test, yoke_leg_test, yoke_plate_test, yoke, arm, cap, cowl, brow_test, assembly, plate, pitch_probe_fixed, pitch_probe_arm"));
