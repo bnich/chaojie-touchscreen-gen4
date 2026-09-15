@@ -256,6 +256,33 @@ PYEOF
 # at it. A wide, one-sided tolerance band (0.6-1.05) absorbs both effects
 # without being wide enough to pass a genuinely hollow yoke (order-of-
 # magnitude smaller, same signature as the historical spline-teeth defect).
+# ⭐ THROAT SEARCH, added 2026-09-15 -- the check that should have caught the
+# yoke's shear web before the owner found it by eye: "there is only a thin bit
+# of plastic connecting where the back of the part mounts to the display to
+# the rest of the yoke." They were right, and THE SECTION SCAN ABOVE SAID THE
+# LEG WAS FINE -- 194.6 mm^2, no flag. That scan cuts perpendicular to Y, and
+# Y is the one direction the web looked thick in: Stage A had to climb 13mm of
+# Z across the 2.32mm of Y the flat-band guard allows it, so the real join was
+# an 18mm-wide, ~2mm-thick sheared web. Cut it at 72-78 degrees, the way the
+# load actually peels the leg off the plate, and it measures 36.4 mm^2.
+#   A SECTION SCAN IS ONLY AS HONEST AS THE PLANE IT CUTS ON. This one does
+# not pick a plane: it sweeps the angle and reports the smallest section that
+# VERIFIABLY separates the load's origin from its destination (cut the solid,
+# and the piece holding the destination must not hold the origin -- without
+# that, the search just finds the part's own edges where the area tends to 0).
+# ~20s per part. See tools/check_throat.py.
+echo "--- throat search (the section scan above cuts on ONE axis; this sweeps) ---"
+"$PY" tools/check_throat.py stl/gen4-yoke.stl --clip-x-min 0 \
+  --from=30,10,4 --to=17.9,-70,6 --min 150 \
+  --label "yoke: bearing plate -> right pivot" || exit 1
+# The arm is measured on the same swept basis rather than assumed healthy
+# because its own scan is single-axis too (Z). It comes out at 234 mm^2, close
+# to its 261.6 mm^2 axis-aligned minimum, i.e. no hidden weak plane -- which is
+# a result, not a foregone conclusion, and is why it is checked here.
+"$PY" tools/check_throat.py stl/gen4-arm.stl \
+  --from=25,9,5 --to=0,9,62 --min 200 \
+  --label "arm: clamp -> male spline" || exit 1
+
 echo "--- whole-yoke fill sanity (guards against a hollow riser/transition)"
 "$PY" - <<'PYEOF'
 import trimesh, sys

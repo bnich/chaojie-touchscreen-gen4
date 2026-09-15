@@ -57,6 +57,32 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   past the glass).
 
 ### Fixed
+- **The yoke's legs hung off the bearing plate by a 36 mm² shear web (found by eye, 2026-09-15).**
+  Owner, looking at the side view: *"there is only a thin bit of plastic connecting where the back of
+  the part mounts to the display to the rest of the yoke, this should be thicker."* Correct.
+  ⛔ **And the load-path section scan added the same day passed it at 194.6 mm².** That scan cuts
+  perpendicular to Y; Y is the one direction the web looked thick in. Stage A has to climb 13 mm of Z
+  across the 2.32 mm of Y the flat-band guard allows (a 5.6:1 slope), so the join was an 18 mm wide,
+  ~2 mm thick sheared web. Cut at 72-78°, the way the load peels the leg off the plate, the verified
+  plate→pivot throat is **36.4 mm²**.
+  **Fixed** with a gusset, not a wider Stage A — the 2.32 mm is forced by a real clearance constraint
+  (low-Z material must stay inside the display's flat band). The load now also runs through the one
+  region with no clearance constraint at all, directly above the bearing plate: a wedge buried
+  `yoke_gusset_bite` (3 mm) into the plate's top face, running north to `yoke_gusset_clear` (3 mm)
+  short of the boot's relief pocket, ramping up to meet the riser. The plate is solid 18-of-18 mm
+  under the leg's whole X band there — measured on `yoke-plate-test.stl`, not assumed — so the
+  gusset's underside is fully carried: no overhang added, the yoke's down-facing area is unchanged at
+  2644 mm², and it still prints with no support. Throat **36.4 → 182.2 mm² (5×)** for 4.3 cm³ of
+  plastic (yoke volume 66534.6 → 70787.3 mm³). The minimum on the path is now the leg's own uniform
+  run rather than a junction.
+  ⭐ **New permanent throat search** (`tools/check_throat.py`, gated in `tools/build.sh`): sweeps the
+  cutting plane's angle instead of picking one, and reports the smallest section that *verifiably
+  separates* the load's origin from its destination — the part is cut and the piece holding the
+  destination must not hold the origin. Without that separation test the search only finds the part's
+  own edges, where area tends to zero. Gates the yoke at 150 mm² and the arm at 200 mm²; ~20 s per
+  part. Proven to fire against the pre-gusset yoke (36.7 mm²). The arm was measured on the same swept
+  basis rather than assumed healthy — it comes out at **234 mm²** against its 261.6 mm² axis-aligned
+  minimum, so it has no hidden weak plane. That is a result, not a foregone conclusion.
 - **`brow_test`'s stated print orientation was the worst of the six.** `docs/printing.md` said
   "flat", which measures **8874 mm²** of steeply down-facing area; standing it on its riser with the
   visor pointing up — the same way up as the cowl, since the visor narrows all the way to its tip —

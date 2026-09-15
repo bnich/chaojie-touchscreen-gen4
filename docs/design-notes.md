@@ -74,32 +74,53 @@ Y-span (`clamp_riser_y0`..`clamp_riser_y1`, 14mm, inboard of the clamp tube's ow
 single Y. `tools/build.sh` now scans every station along both this path and the yoke leg's own, and
 fails the build if either drops below a floor — the permanent check the project didn't have before.
 
-The same pass corrected the yoke leg's own figure too: its true minimum is **~119 mm²**, not the 144
-this table used to quote (`leg_w × yoke_t`, a hand estimate that missed a small dip during the root's
-own taper into the riser — the identical kind of miss as the rib's, just a much smaller one). That
-number is a reasoned, accepted trade (below), not a defect, and the fix above does not touch it.
+### ⚠️ A section scan is only as honest as the plane it cuts on
 
-Walking the path today, every figure measured by the same section scan, not estimated from end
-profiles:
+The scan above cuts perpendicular to one axis. On the yoke, that axis was the one direction the weak
+spot looked strong in, and the scan passed a leg that was hanging off the bearing plate by almost
+nothing. Owner, looking at the side view: *"there is only a thin bit of plastic connecting where the
+back of the part mounts to the display to the rest of the yoke, this should be thicker."* Right again,
+and again after a check had passed it.
+
+The cause is a genuine constraint collision. Material at low Z has to stay inside the display's flat
+band (outside it the rear shell chamfers away), which confines the leg's climb from the plate to the
+riser — **13 mm of Z across 2.32 mm of Y**, a slope of 5.6:1. That is not a taper, it is a shear web
+18 mm wide and about 2 mm thick. Cut across Y it measures 194.6 mm²; cut at 72–78°, the way the load
+actually peels the leg off the plate, it measures **36.4 mm²**.
+
+**The fix is a gusset**, not a wider Stage A — the 2.32 mm is forced and that constraint is real.
+Instead the load now also runs through the one place with no clearance constraint at all: directly
+above the bearing plate. A wedge buried `yoke_gusset_bite` (3 mm) into the plate's top face runs north
+to just clear of the boot's relief pocket and ramps up to meet the riser. The plate is solid 18-of-18
+mm under the leg's whole X band there (measured on `yoke-plate-test.stl`, not assumed), so the
+gusset's underside is fully carried: **no overhang, no support, and the yoke's down-facing area is
+unchanged at 2644 mm²**. Throat **36.4 → 182.2 mm², a 5× improvement**, for 4.3 cm³ of extra plastic.
+
+`tools/check_throat.py` is the permanent check. It does not pick a plane: it sweeps the cutting angle
+and reports the smallest section that *verifiably separates* the load's origin from its destination —
+cut the solid, and the piece holding the destination must not hold the origin. Without that
+separation test the search just finds the part's own edges, where a plane clips a corner and the area
+tends to zero. It gates the yoke at 150 mm² and the arm at 200 mm², and it was proven to fire against
+the pre-gusset geometry (36.7 mm², 113 mm² under the floor).
+
+Walking the path today — every figure measured, none estimated from end profiles:
 
 | Station | Cross-section (measured) |
 |---|---|
 | Bearing plate (bolted to the display) | `yoke_t` (8 mm) full-thickness slab, widened at its base to root both legs |
-| Each leg's own root/riser (where it leaves the plate) | **~119 mm² minimum**, per leg — the tightest single cross-section on the whole path |
+| **Plate → pivot, worst plane at any angle** | **182.2 mm²** per leg (was 36.4 mm² before the gusset) |
+| Each leg's own run, cut across Y | ~194 mm² per leg |
 | The spline (each pivot) | Ø40 Hirth coupling, all 48 teeth engaging at once across a ~1144 mm² annulus — a distributed contact, not a point |
-| Each clamp's own rising rib | **~284 mm² minimum** (widened 2026-09-15 from a 4 mm² knife edge — see above) |
+| Each clamp's own rising rib | **284 mm² minimum** (widened 2026-09-15 from a 4 mm² knife edge — see above) |
+| Clamp → male spline, worst plane at any angle | **234 mm²** — measured the same swept way, so the arm is known clear of this failure mode rather than assumed clear |
 | Each clamp body | Ø48 tube over a ≥Ø28 bore — a ring, not a sliver |
 
-**The leg root, ~119 mm², is the minimum on the whole path** — narrower than the old single arm's own
-root (26 × 8 = 208 mm²) taken in isolation, but there are now **two of them, in parallel**, for a
-combined ~238 mm² carrying a load that used to be a full cantilever on the old single 208 mm² — a wider
-total section carrying a smaller share each, not a thinner one carrying it all. Reducing `leg_w` from
-the old arm's 26 mm to 18 mm was a deliberate trade for clearance from the lone M5's own socket sweep
-(the two legs are no longer centred under it — see `pivot_x_r`'s own assertion in the model), not a
-structural economy; there is headroom to widen it again if a print or a ride ever calls for it.
-`tools/build.sh`'s own load-path scan holds this leg to a 100 mm² floor — real margin under the
-measured ~119 mm² minimum — so any further narrowing gets caught by the build, not found by eye a
-second time.
+**The minimum on the whole path is now the leg's own run, ~182–194 mm² per leg, and there are two of
+them in parallel.** That is the right place for the limit to sit: it is uniform section, not a
+junction. It is set by `leg_w` = 18 mm, reduced from the old single arm's 26 mm as a deliberate trade
+for clearance from the lone M5's socket sweep (the legs are no longer centred under it — see
+`pivot_x_r`'s own assertion in the model), not as a structural economy. There is headroom to widen it
+again if a print or a ride ever calls for it.
 
 ---
 

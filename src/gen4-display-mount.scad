@@ -1232,6 +1232,61 @@ assert(yoke_riser_y1 < yoke_riser_y0 - 2 * eps,
       "thickness is accounted for — the root barely clears the band with ",
       "too little margin left for this riser to fit ahead of it."));
 
+/* ---- ⭐ THE GUSSET (2026-09-15) -----------------------------------------
+   ⛔ EVERYTHING ABOVE THIS POINT LEFT THE LEG HANGING OFF THE PLATE BY A
+   36 mm² SHEAR WEB. Owner, looking at the side view: "there is only a thin
+   bit of plastic connecting where the back of the part mounts to the display
+   to the rest of the yoke, this should be thicker." Correct.
+
+   THE CAUSE. Stage A has to climb from the root's own z=[0,yoke_t] slab to
+   the riser's z=[yoke_t+1, yoke_t+yoke_standoff] — 13 mm of Z — and the two
+   guards above confine it to y in [yoke_riser_y1, yoke_riser_y0], which is
+   only **2.32 mm** wide. That is a slope of 5.6 mm of Z per mm of Y: not a
+   taper, a near-vertical shear web, 18 mm wide and about 2 mm thick.
+
+   ⚠️ AND THE SECTION SCAN IN tools/build.sh SAID IT WAS FINE — 194.6 mm², no
+   flag. That scan cuts perpendicular to Y, and Y is the one direction this
+   web looks thick in. Cut it the way the load actually peels it (a plane
+   tilted ~78° from Y, toward Z) and the real, verified plate→pivot throat is
+   **36.4 mm²**. A section scan is only as honest as the plane it cuts on;
+   see tools/build.sh's own THROAT SEARCH, which now sweeps the angle instead
+   of trusting one axis.
+
+   THE FIX. Not a wider Stage A — the 2.32 mm is forced (low-z material has
+   to stay inside the display's flat band, see yoke_riser_y1 above) and that
+   constraint is real. Instead, carry the load through material that has NO
+   clearance constraint at all: the space directly ABOVE the bearing plate.
+   The plate is solid 18-of-18 mm under the leg's whole X band from the band
+   edge north past y=+5 (measured on yoke-plate-test.stl, not assumed), so a
+   wedge buried `yoke_gusset_bite` into its top face and rising to meet the
+   riser is fully supported along its entire length — it prints with no
+   overhang and needs no support, and it puts a long, gently-sloped load path
+   in parallel with the short steep one.
+
+   ⚠️ ITS NORTH END IS BOUNDED BY THE BOOT, not chosen for looks: the boot's
+   own Ø24 relief pocket reaches south to boot_c_y - boot_clear_d/2, and it
+   overlaps this leg's X band. Asserted below.                            */
+yoke_gusset_bite  = 3;   // how far DOWN into the plate's own yoke_t the
+                         // gusset's underside starts — a buried root rather
+                         // than a surface graze, the same "overlap, don't
+                         // just touch" rule as every other join in this file.
+yoke_gusset_h     = 5;   // how far ABOVE the plate's top face the gusset
+                         // still stands at its north (far) end, before it
+                         // ramps up to the full riser height going south.
+yoke_gusset_clear = 3;   // Y clearance the gusset's north end keeps from the
+                         // boot's own relief pocket.
+yoke_gusset_y = p(boot_c)[1] - boot_clear_d/2 - yoke_gusset_clear;
+
+assert(yoke_gusset_y > yoke_riser_y1,
+  str("GUSSET RUNS THE WRONG WAY: its north end (", yoke_gusset_y,
+      ") must sit north of the riser's own band-edge waypoint (", yoke_riser_y1,
+      ") or the hull() between them folds back on itself instead of ramping ",
+      "up the plate."));
+assert(yoke_gusset_bite < yoke_t,
+  str("GUSSET BITES THROUGH THE PLATE: yoke_gusset_bite (", yoke_gusset_bite,
+      ") must stay under yoke_t (", yoke_t, ") or its underside breaks out of ",
+      "the plate's own bearing face — the surface that seats on the display."));
+
 // ⚠ A THIRD stage, new with the ⚠ DM-6 rework: from the riser top down to
 // where the round pivot puck begins (yoke_pivot_puck() below). This is a
 // DIFFERENT hull() hazard from the two above — the puck's own Z bounding
@@ -1406,6 +1461,18 @@ module yoke_leg() {
   hull() {
     taper_wp(pivot_x_r, leg_w, yoke_riser_y0, 0, yoke_t);
     taper_wp(pivot_x_r, leg_w, yoke_riser_y1, yoke_t + 1, yoke_t + yoke_standoff);
+  }
+
+  // ⭐ Stage A-gusset (2026-09-15): the long, shallow load path that runs in
+  // PARALLEL with Stage A's short steep one. Buried yoke_gusset_bite into
+  // the plate's top face at both ends, so its underside is flat and fully
+  // carried by the plate — no overhang, and it unions into the plate as a
+  // solid rather than sitting on it. See the block comment above.
+  hull() {
+    taper_wp(pivot_x_r, leg_w, yoke_gusset_y,
+             yoke_t - yoke_gusset_bite, yoke_t + yoke_gusset_h);
+    taper_wp(pivot_x_r, leg_w, yoke_riser_y1,
+             yoke_t - yoke_gusset_bite, yoke_t + yoke_standoff);
   }
 
   // Stage B: riser top -> the display's own edge, at the SAME Z-range
