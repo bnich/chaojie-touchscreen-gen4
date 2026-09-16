@@ -290,16 +290,30 @@ echo "--- throat search (the section scan above cuts on ONE axis; this sweeps) -
   --from=20,9,3 --to=0,9,62 --min 200 \
   --label "arm: clamp -> male spline" || exit 1
 
+openscad -o stl/gen4-yoke-ear-test.stl -D 'part="yoke_ear_test"' "$SRC" >/dev/null 2>&1
 echo "--- whole-yoke fill sanity (guards against a hollow riser/transition)"
 "$PY" - <<'PYEOF'
-import trimesh, sys
+import math, sys, trimesh
 plate = trimesh.load("stl/gen4-yoke-plate-test.stl", process=True).volume
-leg = trimesh.load("stl/gen4-yoke-leg-test.stl", process=True).volume
-expect = plate + 2*leg
+leg   = trimesh.load("stl/gen4-yoke-leg-test.stl", process=True).volume
+ears  = trimesh.load("stl/gen4-yoke-ear-test.stl", process=True).volume   # BOTH ears
+# ⚠ THIS EXPECTATION WENT STALE AND NEARLY FALSE-FAILED. It was plate + 2*leg,
+# written before the yoke grew a gusset, two pivot nut pads and two cowl-fixing
+# ears. The gusset rides along inside yoke_leg_test, but the pads and ears do
+# not -- so the "overestimate" had quietly stopped over-estimating and the
+# ratio had climbed to 0.995 against a 1.05 ceiling. It was passing because
+# the formula did not know about a third of the part, not because the part was
+# right, and the next gram of material would have failed the build for no
+# reason. Found by an audit, not by the gate.
+#   The two nut pads are added analytically (a plain cylinder each), which
+# DOUBLE-COUNTS the part of each pad buried in its own leg -- deliberate, since
+# every term here must only ever push the expectation up.
+nut_pads = 2 * math.pi * (16.0/2)**2 * (18.0/2 + 6.0/2)
+expect = plate + 2*leg + ears + nut_pads
 actual = trimesh.load("stl/gen4-yoke.stl", process=True).volume
 ratio = actual / expect
 print(f"    yoke {actual:8.1f} mm^3 vs expected(overestimate) {expect:8.1f}  ratio {ratio:.3f}")
-if not 0.6 <= ratio <= 1.05:
+if not 0.6 <= ratio <= 1.0:
     print("    FAIL: yoke total fill is wrong — hollow riser/transition, disconnected leg, "
           "or geometry changed enough to need a new expectation"); sys.exit(1)
 print("    OK")
@@ -670,6 +684,21 @@ if not ok:
 print("    OK — elevation tracks theta 1:1, roll and the hinge axis itself stay fixed.")
 PYEOF
 rm -f stl/_pitch_fixed.stl stl/_pitch_arm_*.stl
+
+# ⭐ NECK SCAN, added 2026-09-15 (audit). Erode each part and see what falls
+# off: anything joined by less than 1mm of material becomes its own island.
+# Validated against this project's own known-bad geometry -- it catches the
+# arm's 0.2mm knife edge at 0.5mm erosion and the yoke's 36mm^2 shear web at
+# 1.5mm. ⛔ It does NOT catch the cowl-ear defect (two chunky solids meeting
+# over a small contact area -- no slender region to erode) or the deleted
+# boss; those have their own gates. See tools/check_necks.py.
+#   0.5mm is the radius every SHIPPING part survives whole. The cowl is run at
+# 0.5 only: its design wall is 2.4mm, so a larger radius sheds the shell
+# itself and says nothing useful.
+echo "--- neck scan: is any feature joined by a slender neck? ---"
+for part in gauge yoke arm cap cowl brow-test insert-coupon; do
+  "$PY" tools/check_necks.py "stl/gen4-$part.stl" --erode 0.5 --max-island 50 || exit 1
+done
 
 # ⭐ COWL EAR BOND GATE, added 2026-09-15 -- "the new ears are barely
 # connected." They were: the yoke's bearing plate is a truss whose outer edge

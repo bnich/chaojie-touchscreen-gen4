@@ -2477,11 +2477,26 @@ for (i = [0 : brow_stations - 1])
         brow_halfw(brow_p(i + 1)), ") must both deepen AND narrow. A station ",
         "that widens makes the lofted surface bulge outward partway along ",
         "the visor instead of sweeping back to the corner."));
-assert(brow_edge_x + brow_d_s/2 <= disp_w/2 + reveal,
-  str("VISOR WIDER THAN THE COWL: the widest station reaches x=",
-      brow_edge_x + brow_d_s/2, ", past the cowl's own half-width (",
-      disp_w/2 + reveal, "). The visor would overhang the box's own side ",
-      "wall as a lip instead of blending into its rounded corner."));
+// ⚠ THIS USED TO READ `brow_edge_x + brow_d_s/2 <= disp_w/2 + reveal`, WHICH
+// IS A TAUTOLOGY: brow_edge_x is DERIVED as disp_w/2 + reveal - brow_d_s/2,
+// so the two sides are identically equal and no parameter could ever break
+// it. Written when brow_edge_x was an independent number, never revisited
+// when it became derived. Found by an audit that tried to break every
+// assertion in the file and noticed this one could not be broken at all.
+// ⛔ AN ASSERTION THAT CANNOT FAIL IS NOT A TEST.
+//   What actually needs guarding is the INPUT that feeds that derivation: a
+// fat edge section eats the visor's own width, because the two share the
+// cowl's half-width between them.
+assert(brow_edge_x >= disp_w/2 - disp_corner_r,
+  str("VISOR TOO NARROW: its widest station reaches only x=", brow_edge_x,
+      ", inside the cowl's own R", disp_corner_r, " corner (x=",
+      disp_w/2 - disp_corner_r, "). brow_d_s (", brow_d_s, ") is eating the ",
+      "span the visor needs — width, not projection, is what shades ",
+      "(tools/check_shade.py)."));
+assert(brow_d_s < brow_d_c,
+  str("VISOR SECTION NOT CURVED: the edge (", brow_d_s, ") must be thinner ",
+      "than the centreline (", brow_d_c, ") or the section is a flat slab, ",
+      "not the lens the plan curve is lofted from."));
 
 // The riser: PART OF THE SAME UNIFORM-cowl_wall SHELL as the box, not a
 // solid gusset — its own cavity overlaps the box's main cavity (at its low,
@@ -2819,11 +2834,15 @@ assert(cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond > cowl_fix_ear_mid
       "mm) from x=", cowl_fix_ear_x1, " reaches x=",
       cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond,
       ", past where the ear lifts off the plate (", cowl_fix_ear_mid_x, ")."));
-assert(cowl_fix_ear_mid_x > 45.25 + 2,
+// ⚠ DERIVED, not the literal 45.25 an earlier version carried. That number
+// was p(holes[1])[0] + m5_socket_d/2 worked out by hand, which silently goes
+// stale the moment the hole pattern or the socket size changes.
+upper_socket_x = p(holes[1])[0] + m5_socket_d/2;
+assert(cowl_fix_ear_mid_x > upper_socket_x + 2,
   str("COWL FIXING EAR CROSSES THE UPPER M5's SOCKET: it lifts off the plate ",
       "at x=", cowl_fix_ear_mid_x, ", but that bolt's own Ø", m5_socket_d,
-      " socket sweep reaches x=45.25. A rib above the plate there makes the ",
-      "display bolt impossible to drive."));
+      " socket sweep reaches x=", upper_socket_x, ". A rib above the plate ",
+      "there makes the display bolt impossible to drive."));
 assert(cowl_fix_ear_root_x < cowl_fix_ear_mid_x,
   str("COWL FIXING EAR STATIONS OUT OF ORDER: root (", cowl_fix_ear_root_x,
       ") must sit inboard of mid (", cowl_fix_ear_mid_x, ")."));

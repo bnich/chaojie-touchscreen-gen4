@@ -112,7 +112,7 @@ Walking the path today — every figure measured, none estimated from end profil
 | Each leg's own run, cut across Y | ~194 mm² per leg |
 | The spline (each pivot) | Ø40 Hirth coupling, all 48 teeth engaging at once across a ~1144 mm² annulus — a distributed contact, not a point |
 | Each clamp's own rising rib | **284 mm² minimum** (widened 2026-09-15 from a 4 mm² knife edge — see above) |
-| Clamp → male spline, worst plane at any angle | **234 mm²** — measured the same swept way, so the arm is known clear of this failure mode rather than assumed clear |
+| Clamp → male spline, worst plane at any angle | **236.9 mm²** — measured the same swept way, so the arm is known clear of this failure mode rather than assumed clear |
 | Each clamp body | Ø48 tube over a ≥Ø28 bore — a ring, not a sliver |
 
 **The minimum on the whole path is now the leg's own run, ~182–194 mm² per leg, and there are two of

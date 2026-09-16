@@ -5,10 +5,10 @@
 | Where | Part | Note |
 |---|---|---|
 | Display → yoke | **3 × M5 × 12** socket cap | ⚠️ **no washer, never longer** — see below |
-| Pivot | **1 × M6** + nyloc | ⛔ **not an insert** — see `docs/design-notes.md`. Length set by your stack |
-| Bar clamp | **2 × M5 × 16** + **2 × M5 heat-set inserts** | inserts go in the **arm's** ears, from the top. No nuts |
+| Pivot | **2 × M6 × 35** + nyloc + plain washer | one per side. ⛔ **not an insert** — see `docs/design-notes.md`. 26.0 mm of grip, 7.3 mm into the nut |
+| Bar clamp | **4 × M5 × 16** + **4 × M5 heat-set inserts** | 2 per clamp, and there are two clamps. Inserts go in the **arm's** ears, from the top. No nuts |
 | Cowl → yoke | **2 × M5 × 12** + **2 × M5 heat-set inserts** | inserts go in the **yoke's side ears**. Heads recess into the cowl's side walls |
-| Heat-set inserts | **4 × M5 (Ø7 × 5 long)** | ⬜ print `insert_coupon` first and confirm the pocket fit |
+| Heat-set inserts | **6 × M5 (Ø7 × 5 long)** | 4 across the two arms, 2 in the yoke. ⬜ print `insert_coupon` first and confirm the pocket fit |
 | Clamp bore | a strip of **inner-tube rubber** | protects the bar and takes up ovality |
 
 Medium-strength threadlocker for the three display bolts.
@@ -41,7 +41,10 @@ you get **4 mm engaged and 1 mm of air**.
 2. **Three M5 × 12, by hand, then threadlocker, then modest torque.** Check each pulls tight.
 3. **Clamp the arm to the handlebar.** Rubber strip in the bore first. Snug the two clamp bolts
    evenly so the gap stays parallel — do not close one side first.
-4. **Join the spline.** Choose your angle, mesh the teeth, M6 through with a nyloc. The teeth carry
+4. **Join the spline, both sides.** Choose your angle, mesh the teeth, and run an **M6 × 35** through
+   from the clamp side with a **plain washer under the nyloc** — the nut turns against printed ASA and
+   its corners dig in without one. The bolt enters a counterbored seat in the arm's tip puck and lands
+   on a flat pad on the yoke leg's inboard face. The teeth carry
    the load, so this bolt only needs to hold them together — it is not a friction joint and does not
    want to be cranked.
 5. **Route the loom** down behind the arm, leaving a service loop so the bars can reach full lock
@@ -50,8 +53,8 @@ you get **4 mm engaged and 1 mm of air**.
    then drive one **M5 × 12** in through each side wall into the yoke's ear. The heads recess below
    the side face; nothing shows on the back.
 
-**Press the inserts before any assembly.** Four M5s: one in each of the arm's two ears (from the
-top face), one in each of the yoke's two side ears (from the outer face). Iron at ~240 °C for ASA,
+**Press the inserts before any assembly.** Six M5s: two in each clamp arm, in the top face of each
+ear — and there are two arms — plus one in each of the yoke's two side ears, from the outer face. Iron at ~240 °C for ASA,
 straight and slow, and let it cool before loading the thread. ⬜ **Print `insert_coupon` first** —
 insert fit is the one dimension in this project that depends on your supplier rather than on the
 display, and a pocket that is 0.2 mm out either spins or splits.

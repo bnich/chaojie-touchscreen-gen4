@@ -20,6 +20,7 @@ visor over the glass.
 | Grip on the bar | **~81 mm** total, split either side of the steering axis |
 | Sun visor | **33 mm** past the glass; shades **27.7 %** of the screen at 45° off the screen normal |
 | Material | ASA (PC or PETG-CF also suitable) |
+| Filament | **262 cm³** for the six printed parts — about 320 g in ASA |
 
 ---
 
@@ -49,7 +50,7 @@ visor over the glass.
 | Bar clamp, arm → cap | **M5 × 16** socket cap | 4 | Into inserts in the arm; heads counterbored into the cap's underside |
 | Cowl → yoke | **M5 × 12** socket cap | 2 | Into inserts in the yoke's side ears; heads recess below the cowl's side face |
 | Tilt pivot | **M6 × 35** + nyloc + plain washer | 2 | 26.0 mm grip, 7.3 mm into the nut |
-| Heat-set inserts | **M5, Ø7 × 5 long** | 8 | 4 in the arms (2 each), 2 in the yoke; buy spares |
+| Heat-set inserts | **M5, Ø7 × 5 long** | 6 | 4 across the two arms (2 per arm), 2 in the yoke; buy spares |
 | Clamp bore liner | inner-tube rubber strip | 2 | Protects the bar and takes up ovality |
 
 Medium-strength threadlocker on the three display bolts.
@@ -126,7 +127,7 @@ Per-part orientation, measured overhang figures and settings: [docs/printing.md]
 
 ## Assembly
 
-1. Press the eight heat-set inserts.
+1. Press the six heat-set inserts — two in each clamp arm, two in the yoke.
 2. Bolt the yoke to the display — three M5 × 12, run down by hand first, then threadlocker.
 3. Fit a clamp to each side of the centre bracket, butting its faces.
 4. Mesh each spline at the angle you want and run the M6 through with its washer and nyloc.
@@ -162,6 +163,7 @@ tools/    build.sh          export every part and run every gate
           check_throat.py   smallest load-bearing section, angle-swept
           check_fixing.py   does a screw cross one part and land in the other
           check_shade.py    what the sun visor actually shades
+          check_necks.py    erode the part and see what falls off
 ```
 
 ## Building from source

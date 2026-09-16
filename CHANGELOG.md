@@ -50,6 +50,59 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   7.5° clicks move elevation by exactly 22.500°, roll stays at 0.0000000, hinge-axis drift 0.000000°.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
+### Audit (2026-09-16)
+
+A full pass over every part, joint, assertion and document. What it found:
+
+- **A tautological assertion.** `VISOR WIDER THAN THE COWL` read
+  `brow_edge_x + brow_d_s/2 <= disp_w/2 + reveal`, and `brow_edge_x` is *derived* as
+  `disp_w/2 + reveal - brow_d_s/2` — the two sides are identically equal, so no parameter could ever
+  break it. Written when `brow_edge_x` was independent, never revisited when it became derived. ⛔ **An
+  assertion that cannot fail is not a test.** Replaced with two that can: the visor must stay at least
+  as wide as the cowl's corner radius allows, and its edge section must be thinner than its centreline.
+  Found by trying to break all 59 assertions; this was the only one that could not be broken.
+- **A hardcoded number that would have gone stale.** The cowl-ear/socket clearance assert carried the
+  literal `45.25` — `p(holes[1])[0] + m5_socket_d/2` worked out by hand. Now derived.
+- **The whole-yoke fill expectation had stopped over-estimating.** It was `plate + 2×leg`, written
+  before the yoke grew a gusset, two pivot nut pads and two cowl ears. The ratio had climbed to
+  **0.995 against a 1.05 ceiling** — passing because the formula did not know about a third of the
+  part, and one more gram of material would have failed the build for no reason. Now includes the ears
+  (measured) and the nut pads (analytic, deliberately double-counting what is buried in each leg):
+  ratio **0.850**.
+- **The insert count was wrong in two documents.** README said 8, `docs/assembly.md` said 4. Counted
+  on the exported parts: **6** — two per clamp arm (and there are two arms), two in the yoke.
+- **The pivot hardware row said `1 × M6`** when there is one per side, and "length set by your stack"
+  when the length is now derived and asserted. Now `2 × M6 × 35` + nyloc + plain washer.
+- **Stale printability figures.** The yoke's down-facing area is **3560 mm²**, not the 2644 recorded
+  before it grew ears (+35 %); cowl 4902 → 5148; arm 1276 → 1287. Added the `insert_coupon` row and a
+  bed-size note: the yoke's footprint is now **143.8 × 107.1 mm**, the largest single part.
+- **`docs/design-notes.md`'s arm throat** 234 → 236.9 mm², after the pivot head seat was counterbored.
+
+Verified clean, with measurements rather than assertions:
+
+- All seven printable parts watertight, one connected component, no non-manifold edges.
+- **Neck scan** (new): every part survives 0.5 mm of erosion in one piece.
+- **All three display bolts**: clear bore, head seat flat to 0.00 mm across its annulus, socket sweep
+  unobstructed.
+- **All four clamp bolts**: head seats at z = −5.5 in the cap, crosses the 2 mm pinch gap, engages
+  5.0 mm of insert — matching the model's own derived `ear_bolt_engage`.
+- **Both pivots**: bore clear through, both bearing faces flat to 0.00 mm, 26.00 mm of measured grip
+  against 26.1 derived.
+- **Both cowl screws**, every clearance pair, the pitch test and the shade test: unchanged and green.
+- A **clean `git archive` export** builds end to end under a venv holding exactly the packages CI
+  installs.
+
+### Added
+- **`tools/check_necks.py`** — voxelise a part, erode it, and report what falls off. ⚠️ Validated
+  against this project's own four defects rather than assumed to work: it catches the arm's 0.2 mm
+  knife edge (at 0.5 mm) and the yoke's 36 mm² shear web (at 1.5 mm), and **does not** catch the
+  cowl-ear bond or the deleted boss. Those are different failure modes and have their own gates; the
+  docstring says so.
+- **`--sweep all` on `tools/check_throat.py`** — plane normals over a whole hemisphere, including
+  normals along X that the Y-Z sweep never tried. ⛔ It still does **not** catch a corner-graze bond,
+  and the tool now says why: the plane that comes closest to separating a feature also slices a large
+  area of parent carrying none of that feature's load.
+
 ### Added
 - **Exploded view** (`part="exploded"`, `renders/gen4-exploded.png`) — every part pulled apart along
   the axis it actually assembles on, with all 17 fasteners and 8 inserts shown in place.

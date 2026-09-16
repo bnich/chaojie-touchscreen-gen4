@@ -51,16 +51,20 @@ the bed) and not sitting on the plate, plus how high the highest such face sits.
 | Part | Down-facing area | Highest | What it is |
 |---|---|---|---|
 | `gauge` | **0 mm²** | — | genuinely support-free |
+| `insert_coupon` | 71 mm² | 1 mm | the chamfer on its own rounded end |
 | `brow_test` | **0 mm²** | — | genuinely support-free, in the corrected orientation above |
 | `cap` | 703 mm² (13 %) | 17 mm | mostly the clamp bore's own ceiling |
-| `yoke` | 2644 mm² (12 %) | 36 mm | the two sideways spline pucks |
-| `arm` | 1276 mm² (13 %) | 62 mm | the bore's ceiling, plus the sideways male spline disc |
-| `cowl` | 4902 mm² (7 %) | 89 mm | the shell's internal ribs and bosses |
+| `yoke` | 3560 mm² (14 %) | 36 mm | the two sideways spline pucks, plus the cowl-fixing ears |
+| `arm` | 1287 mm² (13 %) | 62 mm | the bore's ceiling, plus the sideways male spline disc |
+| `cowl` | 5148 mm² (7 %) | 89 mm | the shell's internal ribs, bosses and side pads |
 
 ⚠️ **Down-facing is not the same as needs-support.** A horizontal bore's ceiling is self-supporting to
 about 45° and then a short bridge, which is why the bore dominates the `arm`/`cap` figures without
 being a problem. **Put each part through your own slicer and look at the support preview** before
 committing filament — the table above is a geometric screen, not a slicer.
+
+⚠️ **Bed size.** The yoke's footprint is **143.8 × 107.1 mm** — it grew when the cowl-fixing
+ears were added, and it is the largest single part. The cowl is 161.0 × 107.5 mm.
 
 ⬜ **Not slicer-checked.** The `yoke` and `arm` spline orientations have been an open question since
 the tilt-axis fix (each pivot boss now faces sideways, so its Ø40 disc stands with its face vertical).
