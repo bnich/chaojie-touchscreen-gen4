@@ -78,6 +78,33 @@ the far corners first.
 - **Brim, 8–10 mm.** Cheap insurance on both wide parts.
 - Slow the first layer and give it a little extra squish.
 
+### ⛔ The yoke REQUIRES support — turn it on
+
+Measured with `tools/check_print.py`: **2386 mm² of the yoke is laid over air**, including two
+**390 mm² patches 9.2 mm up**, where each leg begins a 45 mm horizontal cantilever out to its pivot.
+And each Ø40 spline disc stands on its own **tangent** — the two of them share just 184 mm² of first
+-layer contact, fanning out to 1745 mm² by 10 mm up.
+
+Use **support on build plate only** (everything needing it sits over bare bed), and keep a brim.
+Without support those legs droop, and the drooped material is what the nozzle then catches.
+
+### ⚠️ Curling edges, and the nozzle knocking the part
+
+The yoke is the widest flat part here — a 144 mm bearing plate in a material that shrinks. Corners lift
+first, then the nozzle strikes the raised edge and walks the part off the bed.
+
+- **Fan off for the first 3–5 layers, then 20 % maximum.** A PLA profile at 100 % fan will curl ASA on
+  its own, and this is the most common single cause.
+- **Enclosure, lid shut, no draught** — passive 40–50 °C in the chamber is enough.
+- **Bed 100–110 °C, held all print.** Clean it with IPA; ASA lifts off finger oil long before glass.
+- **Brim 10–15 mm.** On a footprint this wide it is what holds the corners down.
+- **Z-hop 0.2–0.4 mm on travel.** This does not stop curling, but it stops the nozzle *hitting* what
+  has curled — which is the difference between a blemish and a part on the floor.
+- First layer slower, nozzle +10 °C, a little extra squish.
+- ⚠️ **Do not halve your speeds to fix this.** Slower means each layer has longer to cool and contract
+  before the next one lands on it, which makes ASA curl slightly **worse** — and it doubles what a
+  failure costs you. Moderate speed in a warm chamber beats slow speed in a cold one.
+
 ⭐ **The yoke's cowl-fixing ears used to lift, and that was the model's fault, not a setting.** Their
 undersides sat 0.8–2.4 mm above the bed, sloping only 5° — a 21 mm unsupported shelf per side at the
 part's outermost corners, which is where shrinkage pulls hardest. They now sit **coplanar with the

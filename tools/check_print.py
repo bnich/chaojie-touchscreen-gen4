@@ -8,6 +8,9 @@ overhang-area figure nor anything else in the build caught it:
 
   · the yoke's cowl ears sat 0.8-2.4mm above the bed, sloping 5 degrees --
     21mm of shelf per side printed into thin air.
+  · the yoke's two Ø40 spline discs stand on their own TANGENT, ~92mm^2 each
+    at the first layer, fanning out to 1745mm^2 by z=10 -- and its legs
+    cantilever 45mm horizontally at z=9 with nothing underneath.
 
 "Total down-facing area" does not answer the question that matters. A part
 can have a large down-facing area that is entirely fine (a horizontal bore
@@ -22,7 +25,8 @@ that is where a print lets go and turns into spaghetti.
 
 Reported per part:
   · bed contact area, and where the footprint reaches
-  · every layer that contains a floating island, with its area and position
+  · every region of every layer that is under 20% supported by the layer
+    below -- islands (0% held) and severe overhangs alike
   · the tallest unsupported span
 
 Usage:
@@ -61,16 +65,28 @@ def analyse(mesh, up, pitch):
         if not layer.any():
             continue
         below = g[:, :, k - 1]
-        lab, n = ndimage.label(layer)
+        # ⚠ MEASURE PER VOXEL, NOT PER REGION. Two earlier versions asked
+        # whether a connected REGION of the layer touched anything below --
+        # first "any contact at all", then "at least 20% held". Both pass the
+        # yoke, whose legs cantilever 45mm and whose Ø40 discs stand on their
+        # own tangent, because all of it is joined IN-LAYER to the bearing
+        # plate and the plate's own area dominates the fraction. What the
+        # nozzle experiences is per-position: this bit of this layer, is there
+        # anything under it? So count unsupported VOXELS.
+        unsup = layer & ~below
+        if not unsup.any():
+            continue
+        lab, n = ndimage.label(unsup)
         for i in range(1, n + 1):
             sel = lab == i
-            if (sel & below).any():
-                continue                      # rests on something
+            area = sel.sum() * cell
+            if area < 3.0:            # a normal sloped wall sheds a voxel or two
+                continue
             idx = np.argwhere(sel)
             c = idx.mean(axis=0)
-            floats.append((sel.sum() * cell, k * pitch,
+            floats.append((area, k * pitch,
                            c[0] * pitch + m.bounds[0][0],
-                           c[1] * pitch + m.bounds[0][1]))
+                           c[1] * pitch + m.bounds[0][1], 0.0))
     return bed, floats, m.extents
 
 
@@ -103,14 +119,14 @@ def main():
     print(f"    {name}{tag}: {ext[0]:.0f} x {ext[1]:.0f} mm footprint, "
           f"{ext[2]:.0f} mm tall, {bed:.0f} mm^2 on the bed")
     if not floats:
-        print("        no layer starts in mid-air")
+        print("        nothing is laid over air")
         return 0
 
     floats.sort(key=lambda t: -t[0])
     total = sum(f[0] for f in floats)
-    print(f"        {len(floats)} floating island(s), {total:.0f} mm^2 total:")
-    for area, h, cx, cy in floats[:6]:
-        print(f"          {area:7.1f} mm^2 starting {h:6.2f} mm up, "
+    print(f"        {len(floats)} unsupported patch(es), {total:.0f} mm^2 of material\n        laid over air across the whole print:")
+    for area, h, cx, cy, frac in floats[:6]:
+        print(f"          {area:7.1f} mm^2 at {h:6.2f} mm up, over air, "
               f"near [{cx:7.1f} {cy:7.1f}]")
     if len(floats) > 6:
         print(f"          ... and {len(floats)-6} more")
