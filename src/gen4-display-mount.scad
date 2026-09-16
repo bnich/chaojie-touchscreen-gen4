@@ -84,6 +84,60 @@ m5_len    = 12;            // ⚠ M5 x 12. Set by what the owner stocks (8/12/16
                            // real guard — change this and they will tell you what
                            // thickness it now demands.
 
+/* [HEAT-SET THREADED INSERTS] --------------------------------------------
+   ⭐ Added 2026-09-15, owner has a 380-piece M2..M8 kit and a 60W iron.
+
+   ⭐ DIMENSIONS ARE FROM THE OWNER'S OWN KIT (photographed 2026-09-15), not
+   from a generic table. Its sizing chart reads M2x3x3.2, M2.5x4x4, M3x4x4.2,
+   M4x5x5, **M5x5x7**, M6x6x8, 1/4-20x6x8, M8x8x10 — i.e.
+   **M<thread> x <length> x <OD>**. That reading is forced, not assumed: the
+   alternative (OD then length) would put an M5 thread inside a Ø5 body and
+   an M8 inside a Ø8, which cannot exist. So the M5s are **Ø7.0 x 5.0 long**.
+   ⚠️ THESE ARE SHORT INSERTS — 5mm, about half the length of the generic
+   9.5mm M5 this file first assumed. That is what sets ear_h and both bolt
+   lengths below; a longer insert would need a deeper boss.
+   ⬜ The OD is from the vendor's chart, not calipers. The **fit** (how much
+   smaller the pocket is) is still unverified, so print `insert_coupon`
+   (part="insert_coupon") before committing a real part: too big and the
+   insert spins under torque, too small and it splits the boss.
+
+   WHERE THEY GO, and where they deliberately do NOT:
+   ✅ THE BAR CLAMP (arm ↔ cap), one per ear. This joint is torqued, and is
+      re-torqued after the first rides (golden rule 6). It currently needs a
+      nyloc held with a second spanner on top of the arm's ear; an insert
+      removes the nut entirely and gives a thread that survives being cycled.
+   ✅ THE COWL FIXING (cowl → yoke), one per ear. The cowl is the part that
+      comes off for service, so its thread is cycled most of all. Without an
+      insert this is a thread formed directly in ASA, which does not survive
+      many cycles.
+   ⛔ NOT THE PIVOT (yoke ↔ arm). Tempting — it is slackened every time the
+      tilt is re-set — but the numbers say no: the M6 bolt runs up the
+      spline's own central bore, spline_id = 12, so an M6 insert (Ø8 nominal)
+      would leave (12-8)/2 = 2mm of wall, in the middle of the tooth ring
+      where the teeth need their support. It is also the one joint here that
+      is purely in TENSION, clamping two toothed faces together: a steel bolt
+      through both parts with a nut puts the ASA in compression between two
+      steel faces, which is the arrangement FDM is strongest in. An insert
+      would instead hang that tension off a knurl in 2mm of wall. **Keep the
+      M6 through-bolt and the nyloc.**
+   ⛔ NOT THE DISPLAY MOUNT. Those three threads are in the display, not in
+      anything printed here.                                              */
+insert_m5_od  = 7.0;   // M5x5x7 — the OD, from the kit's own chart.
+insert_m5_len = 5.0;   // M5x5x7 — the length. Short; see the ⚠️ above.
+insert_fit    = 0.2;   // how much SMALLER than the insert the pocket is, so
+                       // the knurl melts into real material instead of
+                       // dropping through. Generic starting point; the
+                       // coupon is what settles it.
+insert_sink   = 0.5;   // extra pocket depth past the insert's own length, so
+                       // it can finish flush or a touch below the face
+                       // rather than standing proud and fouling the mating
+                       // part.
+insert_m5_pocket_d = insert_m5_od - insert_fit;
+insert_m5_pocket_h = insert_m5_len + insert_sink;
+insert_lead        = 0.6;   // chamfer at the pocket mouth: gives the iron
+                            // something to centre on, and catches the small
+                            // ring of displaced plastic the insert pushes up.
+
 /* [DISPLAY — CABLE BOOT] the whole loom leaves the device through this */
 boot_c        = [ 80.0, 40.9 ];
 boot_d        = 13.0;
@@ -302,6 +356,14 @@ ear_h     = 10;     // each ear's own reach off the split plane (Z). The CAP's
                     // half (Z from -ear_h to -pinch_gap/2) is the one that
                     // carries the counterbore, so it is the one sized against
                     // ear_cbore_h below (asserted).
+                    // ⚠ THE HEAT-SET INSERT LIVES IN THE ARM'S HALF OF THIS
+                    // EAR (2026-09-15), which is only ear_h - pinch_gap/2 =
+                    // 9mm tall. The owner's M5 inserts are 5mm long, so a
+                    // 5.5mm pocket leaves 3.5mm of real material under it for
+                    // the bolt's own clearance — asserted below. This value
+                    // briefly went to 13.5 while the file assumed a generic
+                    // 9.5mm insert; the kit's own chart says 5mm, so 10
+                    // stands and the clamp stays its original height.
 ear_x     = clamp_od/2 + ear_d/2 - 3;   // ear centre, off the bore axis (X).
                     // -3mm so the boss overlaps 3mm into the round clamp body
                     // for a solid union instead of two solids just kissing at
@@ -316,6 +378,33 @@ ear_head_d  = 9.5;  // counterbore for the M5 socket head (m5_head_d=8.5) with
 ear_cbore_h = 4.5;  // counterbore depth — leaves >=4.5mm of the ~9mm ear
                     // height below it before the clearance hole breaks
                     // through, so the head seats on real material, not air
+assert(ear_h - insert_m5_pocket_h - pinch_gap/2 > 1,
+  str("INSERT POCKET BREAKS INTO THE PINCH GAP: the arm's own ear is ",
+      ear_h - pinch_gap/2, "mm tall and the pocket wants ", insert_m5_pocket_h,
+      "mm, leaving ", ear_h - insert_m5_pocket_h - pinch_gap/2,
+      "mm under it. Under 1mm the insert has nothing to grip at its far end ",
+      "and the pocket opens into the clamp's own pinch gap. Raise ear_h, or ",
+      "use a shorter insert and correct insert_m5_len."));
+// Clamp bolt arithmetic, stated rather than assumed. Head seats at
+// z = -(ear_h - ear_cbore_h); the insert's near end is at
+// z = ear_h - insert_m5_pocket_h; everything between is dead length.
+ear_bolt_len    = 16;    // M5 x 16, from the owner's own stock
+ear_bolt_dead   = (ear_h - ear_cbore_h) + (ear_h - insert_m5_pocket_h);
+ear_bolt_engage = min(insert_m5_len, ear_bolt_len - ear_bolt_dead);
+assert(ear_bolt_engage >= 4,
+  str("CLAMP BOLT TOO SHORT FOR ITS INSERT: an M5x", ear_bolt_len,
+      " spends ", ear_bolt_dead, "mm crossing the cap and the clearance ",
+      "below the pocket, leaving ", ear_bolt_engage, "mm of thread in a ",
+      insert_m5_len, "mm insert. Needs >=4mm or it will strip."));
+// The pocket's far end IS the ear's own top face, so a long bolt runs out
+// into open air rather than bottoming — no upper bound needed here, unlike
+// the display's own blind 5mm threads (docs/assembly.md).
+assert(ear_d - insert_m5_pocket_d > 4,
+  str("INSERT POCKET TOO BIG FOR ITS BOSS: a Ø", insert_m5_pocket_d,
+      " pocket in a Ø", ear_d, " boss leaves ", (ear_d - insert_m5_pocket_d)/2,
+      "mm of wall. A heat-set insert pushes material outward as it goes in — ",
+      "thin wall here bulges or splits."));
+
 arm_w       = 20;   // the rising rib's own structural width — X in this
                     // part's frame (not Y: that stale claim predates the
                     // ⚠ DM-6 axis rework and is corrected here, 2026-09-15,
@@ -1541,6 +1630,14 @@ module yoke() {
       //    just convenient.
       yoke_leg();
       mirror([1, 0, 0]) yoke_leg();
+
+      // 3. ⭐ The two ears the COWL screws into (2026-09-15). The cowl had
+      //    no working fixing at all before this — see cowl_fix_pad()'s own
+      //    block comment for both ways the old one failed. Both halves of
+      //    this joint are derived from the same cowl_fix_* numbers, in one
+      //    place, so the hole and the ear cannot drift apart the way the
+      //    old M3 boss and its imaginary landing did.
+      yoke_fix_ear();
     }
 
     hole_pattern(yoke_t);
@@ -1788,10 +1885,20 @@ module clamp_od_half(upper) {
 //   both accessible without disturbing anything above them.
 module ear_bolt_cut(arm_side) {
   if (arm_side) {
+    // ⭐ HEAT-SET INSERT, pressed into the ARM's ear from its TOP face
+    // (2026-09-15) — replaces the nyloc that used to sit there. Installing
+    // from the top is the only practical direction: the other end of this
+    // ear faces into the pinch gap, where no iron can reach.
+    translate([0, 0, ear_h - insert_m5_pocket_h])
+      cylinder(d = insert_m5_pocket_d, h = insert_m5_pocket_h + eps);
+    translate([0, 0, ear_h - insert_lead])
+      cylinder(d1 = insert_m5_pocket_d, d2 = insert_m5_pocket_d + 1.2,
+               h = insert_lead + eps);
+    // Bolt clearance from the split plane up to the pocket, so the bolt's
+    // own tip can pass on through the insert rather than bottoming in it.
     translate([0, 0, pinch_gap/2 - eps])
-      cylinder(d = ear_bolt_d, h = ear_h - pinch_gap/2 + 2 * eps);
-    translate([0, 0, ear_h - 0.5])
-      cylinder(d1 = ear_bolt_d, d2 = ear_bolt_d + 1, h = 0.5 + eps);
+      cylinder(d = ear_bolt_d,
+               h = ear_h - insert_m5_pocket_h - pinch_gap/2 + 2 * eps);
   } else {
     translate([0, 0, -ear_h - eps])
       cylinder(d = ear_head_d, h = ear_cbore_h + eps);
@@ -2455,16 +2562,19 @@ module cowl_opening_cut() {
 }
 
 // ---- Top retention hook: a small interference tab, not a structural joint
-// (the two M3s below are that). Reaches hook_engage past the display's own
+// (the two side M5s below are that). Reaches hook_engage past the display's own
 // TRUE edge (disp_h/2, doc-Y 0 — a confirmed housing dimension, not a
 // guessed chamfer/step detail this repository doesn't have) so the thin ASA
 // wall can flex over it on installation: tilt the cowl, hook this tab past
-// the display's top edge, then rotate down and drive the M3s (assembly.md:
-// "hook the top lip first, then two M3 up through the bottom rim").
+// the display's top edge, then rotate down and drive the two side M5s
+// (assembly.md: "hook the top lip first, then one M5 into each side").
+// ⚠️ The rotation is about an axis along X, so the side walls never change
+// their own X during it — the pads (x 74.1..78.1) and the yoke's ears
+// (x <= 73.6) cannot collide at any point in the motion, seated or not.
 hook_engage = 1.5;   // modest, deliberately — an anti-lift locator, not the
                      // retention itself; assembly.md's own two-step order
                      // (hook, THEN screw) says the hook only has to hold
-                     // until the M3s go in.
+                     // until the side M5s go in.
 hook_w      = 40;    // centred. Comfortably inside the case-screw pockets at
                      // doc (33.1,84.2)/(127.3,84.2) — display-geometry.md §3
                      // — so it can never foul them regardless of their exact
@@ -2475,91 +2585,220 @@ module cowl_hook() {
     cube([hook_w, hook_engage + reveal, cowl_wall], center = true);
 }
 
-// ---- Two M3s, upward (model +Y) through the bottom rim, into the yoke
-// (assembly.md's hardware table). Reachable from the SAME opening the arm
-// and loom already use — nothing about this fastener is visible or
-// reachable from the front (criterion).
-m3_clear_d  = 3.4;   // M3 free-fit clearance, not "close fit" 3.2 — FDM
-                     // holes print undersized, and this is a part that
-                     // should never need redrilling to assemble.
-m3_lead_d   = m3_clear_d + 1;   // same +1mm lead-in convention as
-                     // hole_pattern()'s own M5 countersinks above.
-m3_boss_d   = 8;     // (8-3.4)/2 = 2.3mm of ASA on every side of the
-                     // clearance hole — comfortably over hole_pattern()'s
-                     // own margin conventions elsewhere in this file.
-m3_boss_len = 14;    // real bearing length for the screw, not just a thin
-                     // washer-plate.
-// ONE PER SIDE OF THE OPENING — symmetric again, ⭐ TWO-CLAMP REWORK
-// (open_x0/open_x1 are now ±open_half): each boss sits just outside ITS OWN
-// edge, with 2mm of solid wall between the opening's cut edge and the
-// boss's own bore, so the M3 clearance hole never breaks into the opening
-// on either side. Written from open_x0/open_x1 rather than ±open_half
-// directly so nothing here needs to know or care that they are symmetric.
-m3_x_left  = open_x0 - m3_boss_d/2 - 2;
-m3_x_right = open_x1 + m3_boss_d/2 + 2;
-m3_y0  = open_y0 - 2;                  // boss's lower (open, driver-access)
-                     // end — reachable from the same opening the arm and
-                     // loom already use.
-m3_y1  = m3_y0 + m3_boss_len;
-m3_z_overlap = 0.6;  // how far the boss's PLAIN cylinder reaches past the
-                     // back cap's own inner face (z=cowl_depth-cowl_wall) —
-                     // a real bond, not a graze (same "overlap, don't just
-                     // touch" reasoning as ear_web()'s bridge elsewhere in
-                     // this file), kept modest because the root fillet below
-                     // reaches further still and both have to stay clear of
-                     // the visible outer face.
-m3_z_c = cowl_depth - cowl_wall - m3_boss_d/2 + m3_z_overlap;
-m3_z_max = m3_z_c + m3_boss_d/2 + fillet_in;   // ⚠ the boss's TRUE highest
-                     // reach — NOT m3_z_c+m3_boss_d/2. cowl_m3_boss() below
-                     // hulls the plain-diameter run against a WIDER disc
-                     // (d=m3_boss_d+2*fillet_in) right at the cap end, for
-                     // the R1 root fillet — so the root fillet's own radius
-                     // (m3_boss_d/2+fillet_in), not the plain cylinder's, is
-                     // what actually decides how close this gets to the
-                     // visible surface. Missing this the first time round
-                     // let the fillet poke 0.1mm through the back cap
-                     // (found by checking the exported bbox against
-                     // cowl_depth, not by trusting the assert below alone —
-                     // the assert used m3_boss_d/2 only and passed anyway).
+// ---- ⭐ COWL FIXING (2026-09-15): TWO M5s, SIDEWAYS, INTO EARS ON THE YOKE
+//
+// ⛔ WHAT WAS HERE BEFORE DID NOT HOLD THE COWL AT ALL. Owner: "how does the
+// cowl attach? it has no bolts?" Correct — it did not.
+//
+// The old design put two M3 bosses on the bottom rim and drove them "+Y into
+// the yoke". Two independent failures, either one fatal:
+//   (1) THE BOSSES WERE DELETED ON EXPORT. They were unioned into the shell
+//       and the cavity subtraction — which runs across the FULL inset outline
+//       up to z=cowl_depth-cowl_wall — then removed every part of them below
+//       the back cap. Measured: the exported cowl's volume is IDENTICAL, to
+//       0.00 mm^3, with the boss module on and forced off. The clearance
+//       holes were then drilled through empty cavity and cut nothing either.
+//   (2) THEY HAD NOTHING TO THREAD INTO. They sat at x=+-52.5, z=24.5; the
+//       yoke's plate reaches x=+-51.5 and z=0..8. Nearest yoke material to
+//       the screw's own midpoint: 21.8mm. yoke() had no M3 feature anywhere.
+// Every assertion in the old block passed — they checked the boss's position,
+// its fillet, and its reach into the back cap, all of a boss that no longer
+// existed by the time the part was exported. Nothing checked that the screw
+// ended up in metal, or that the boss survived at all. THE BUILD NOW CHECKS
+// BOTH (tools/build.sh's COWL FIXING gate).
+//
+// THE REPLACEMENT, chosen by the owner over two alternatives (the other two
+// ran the display's own three M5s through the cowl, which is stronger but
+// puts fastener heads or access holes on the back face — the one surface
+// that is visible from the front of the bike):
+//   TWO M5s, driven in -X and +X through the cowl's own SIDE walls, into two
+// ears on the yoke. The back face stays bare. M5, not M4, because the owner
+// stocks M5x8/12/16/20 — **M5x16** is the size this geometry is built around.
+//
+// ⚠️ THE EARS MUST NOT TOUCH THE DISPLAY. display-geometry.md 4.2 gives the
+// flat bearing band as a Y range (23.0..71.6) and says nothing about how far
+// it extends in X — the X extent has never been measured. These ears reach to
+// x=+-73.6, within 7mm of the display's own edge, where the shell is very
+// likely already curving. So they are held clear of z=0 by cowl_fix_ear_z0
+// and bear on nothing: they are a bracket, not a bearing surface, and the
+// three M5s still carry the whole seating load on the plate's own footprint.
+cowl_fix_clear_d = 5.5;   // M5 free-fit through the cowl's own wall — free
+                          // fit, not close, for the same reason the old M3
+                          // used 3.4: FDM holes print undersized and this
+                          // part should never need redrilling to assemble.
+cowl_fix_head_d  = 9.5;   // counterbore, so the head sits UNDER the side
+                          // face rather than proud of it.
+cowl_fix_head_h  = 5.2;   // counterbore depth — 0.2mm MORE than a standard
+                          // M5 socket-head cap's own 5.0mm head, so the head
+                          // finishes BELOW the side face rather than proud of
+                          // it. From outside all that shows is a 9.5mm hole.
+cowl_fix_beyond  = 6;     // bolt-tip clearance drilled PAST the insert, so a
+                          // long screw runs out into air instead of bottoming
+                          // on the ear's own far wall. A bolt that bottoms
+                          // feels tight and holds nothing — the same trap
+                          // docs/assembly.md flags on the display's own 5mm
+                          // threads.
+cowl_fix_y       = -4;    // where on the side wall, model Y. Mid-plate: the
+                          // yoke's own plate spans y=-24.61..17.09, so an ear
+                          // here roots into the middle of it rather than at
+                          // an end.
+cowl_fix_z       = 9;     // model Z. ⚠️ NOT 6.5, which a first version used:
+                          // the pad is a Ø cowl_fix_pad_d cylinder CENTRED on
+                          // this, so at 6.5 its underside reached z=-1 and bit
+                          // 39.8 mm^3 into the display. Caught by the cowl-vs-
+                          // display clearance check, not by any assertion —
+                          // the asserts here all read the SCREW's position and
+                          // the screw was fine; it was the pad around it that
+                          // was not. The floor below now states the real
+                          // constraint.
+cowl_fix_pad_d   = 15;    // internal pad thickening the 2.4mm wall around the
+                          // hole. ⚠️ INTERNAL, deliberately: design-notes.md's
+                          // own uniform-wall rule is about the VISIBLE
+                          // surface dimpling where a thick section meets a
+                          // thin one, and this pad is inside the cavity where
+                          // no one sees it. Without it the head would bear on
+                          // 2.4mm of ASA.
+cowl_fix_pad_t   = 6;     // how far the pad stands proud, inward (+/-X). 6,
+                          // not 4: the counterbore above eats 5.2mm of the
+                          // wall+pad stack, and what is left under it still
+                          // has to be real material for the head to pull
+                          // against.
+cowl_fix_gap     = 0.3;   // assembly clearance, pad's own inner face to the
+                          // ear's own outer face. The screw pulls this shut;
+                          // 2.4+4mm of ASA over a 161mm span flexes 0.3mm
+                          // without complaint.
 
-assert(m3_x_right + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
-  str("M3 BOSS TOO FAR OUT (right): boss edge at x=", m3_x_right + m3_boss_d/2,
-      " comes within 2mm of the shell's own R", fillet_out, " outer chamfer ",
-      "(starts at x=", disp_w/2 + reveal - fillet_out, ")."));
-assert(-m3_x_left + m3_boss_d/2 < disp_w/2 + reveal - fillet_out - 2,
-  str("M3 BOSS TOO FAR OUT (left): boss edge at x=", m3_x_left - m3_boss_d/2,
-      " comes within 2mm of the shell's own R", fillet_out, " outer chamfer ",
-      "(starts at x=", -(disp_w/2 + reveal - fillet_out), ")."));
-assert(m3_z_max < cowl_depth - 0.5,
-  str("M3 BOSS BREAKS THE VISIBLE SURFACE: the root fillet reaches z=",
-      m3_z_max, ", within 0.5mm of the back cap's own outer face at z=",
-      cowl_depth, " — this must include the R1 root fillet's own radius ",
-      "(m3_boss_d/2+fillet_in), not just the plain boss diameter, or a ",
-      "0.1mm bump on the visible surface passes silently (found once)."));
+// Derived, in one place, so the cowl's hole and the yoke's ear cannot drift
+// apart — the exact failure the old M3s had. BOTH parts read these.
+cowl_fix_wall_x  = disp_w/2 + reveal;              // outer face of the side wall
+cowl_fix_pad_x   = cowl_fix_wall_x - cowl_wall - cowl_fix_pad_t;   // pad's inner face
+cowl_fix_ear_x1  = cowl_fix_pad_x - cowl_fix_gap;  // ear's own outer face
+cowl_fix_ear_x0  = disp_w/2 - disp_corner_r - 20;  // ear's inboard end, well
+                          // inside the yoke plate's own edge so the ear roots
+                          // into the plate rather than hanging off its corner.
+cowl_fix_ear_w   = 16;    // ear's Y width
+cowl_fix_ear_z0  = 2.5;   // ear's underside, model Z. NOT 0 — see the ⚠️ above:
+                          // this is what guarantees the ear cannot touch the
+                          // display's (unmeasured, probably curving) shell out
+                          // at x=+-73.6.
+cowl_fix_ear_z1  = 15.5;  // ear's top, model Z.
 
-module cowl_m3_boss() {
-  for (x = [m3_x_left, m3_x_right])
-    // A short root fillet (fillet_in, R1 — "internal fillets at wall-to-rib
-    // junctions") where the boss meets the back cap: hull() a slightly
-    // larger, shorter disc at the cap end against the plain-diameter run —
-    // same 3-point-hull shape chamfer_slab() itself uses, just built by
-    // hand here because the boss's own axis (Y) isn't chamfer_slab's native
-    // Z, and this fillet is one-sided (only the cap end, not the open end).
-    hull() {
-      translate([x, m3_y0, m3_z_c]) rotate([-90, 0, 0])
-        cylinder(d = m3_boss_d, h = m3_boss_len - fillet_in);
-      translate([x, m3_y1 - eps, m3_z_c]) rotate([-90, 0, 0])
-        cylinder(d = m3_boss_d + 2*fillet_in, h = eps);
-    }
+
+assert(cowl_fix_ear_z0 > 0,
+  str("COWL FIXING EAR TOUCHES THE DISPLAY: cowl_fix_ear_z0 (", cowl_fix_ear_z0,
+      ") must stay above z=0. The ear reaches x=", cowl_fix_ear_x1,
+      ", far outside the X range display-geometry.md has ever measured the ",
+      "flat bearing band over — it must bear on nothing."));
+assert(cowl_fix_z - cowl_fix_pad_d/2 > 0,
+  str("COWL FIXING PAD BITES THE DISPLAY: the pad is a Ø", cowl_fix_pad_d,
+      " cylinder centred at z=", cowl_fix_z, ", so its underside reaches z=",
+      cowl_fix_z - cowl_fix_pad_d/2, ". The display is everything below z=0. ",
+      "⚠ Check the PAD, not just the screw — the screw's own axis cleared ",
+      "fine while the pad around it cut 39.8 mm^3 into the display."));
+assert(cowl_fix_ear_z0 < cowl_fix_z && cowl_fix_z < cowl_fix_ear_z1,
+  str("COWL FIXING SCREW MISSES ITS OWN EAR: cowl_fix_z (", cowl_fix_z,
+      ") must sit strictly inside the ear's own Z range (", cowl_fix_ear_z0,
+      "..", cowl_fix_ear_z1, ")."));
+assert(cowl_fix_ear_z0 < yoke_t,
+  str("COWL FIXING EAR DOES NOT REACH THE PLATE: the ear spans z=",
+      cowl_fix_ear_z0, "..", cowl_fix_ear_z1, " and the bearing plate is ",
+      "z=0..", yoke_t, " — they must overlap or the ear is a separate body."));
+assert(cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond > cowl_fix_ear_x0,
+  str("COWL FIXING BORE RUNS OUT OF EAR: the insert pocket (",
+      insert_m5_pocket_h, "mm) plus its tip clearance (", cowl_fix_beyond,
+      "mm) from x=", cowl_fix_ear_x1, " reaches x=",
+      cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond,
+      ", past the ear's own inboard end (", cowl_fix_ear_x0, ")."));
+assert(cowl_fix_ear_z1 - cowl_fix_ear_z0 - insert_m5_pocket_d > 3,
+  str("COWL FIXING INSERT TOO BIG FOR ITS EAR: a Ø", insert_m5_pocket_d,
+      " pocket in a ", cowl_fix_ear_z1 - cowl_fix_ear_z0,
+      "mm-tall ear leaves ", (cowl_fix_ear_z1 - cowl_fix_ear_z0 - insert_m5_pocket_d)/2,
+      "mm of wall above and below it — a heat-set insert pushes material ",
+      "outward as it goes in and will split a wall this thin."));
+assert(cowl_fix_pad_d/2 + abs(cowl_fix_y) < disp_h/2 + reveal - fillet_out - 2,
+  str("COWL FIXING PAD RUNS OFF THE SIDE WALL: the pad reaches y=",
+      cowl_fix_pad_d/2 + abs(cowl_fix_y), ", too close to the cowl's own ",
+      "top/bottom edge at ", disp_h/2 + reveal, "."));
+// ⚠️ The screw's total length is a CONSEQUENCE of the stack, not a free
+// choice. Under-head it crosses: the counterbore's remaining wall, the gap,
+// and the pilot. Stated here so a reader can check their own hardware.
+cowl_fix_screw_len = 12;   // M5 x 12, from the owner's own stock
+cowl_fix_dead      = cowl_wall + cowl_fix_pad_t - cowl_fix_head_h + cowl_fix_gap;
+cowl_fix_engage    = min(insert_m5_len, cowl_fix_screw_len - cowl_fix_dead);
+assert(cowl_fix_engage >= 4,
+  str("COWL FIXING SCREW TOO SHORT: an M5x", cowl_fix_screw_len,
+      " spends ", cowl_fix_dead, "mm crossing the cowl's own wall and the ",
+      "assembly gap, leaving ", cowl_fix_engage, "mm of thread in the ",
+      "insert. Needs >=4mm."));
+assert(cowl_fix_screw_len - cowl_fix_dead - insert_m5_len < cowl_fix_beyond,
+  str("COWL FIXING SCREW BOTTOMS OUT: an M5x", cowl_fix_screw_len,
+      " runs ", cowl_fix_screw_len - cowl_fix_dead - insert_m5_len,
+      "mm past the insert, against only ", cowl_fix_beyond,
+      "mm of tip clearance."));
+
+// The cowl's side of the joint: an internal pad, a clearance hole, and a
+// counterbore so nothing stands proud of the side face.
+module cowl_fix_pad() {
+  for (s = [-1, 1])
+    translate([s * (cowl_fix_wall_x - cowl_wall - cowl_fix_pad_t),
+               cowl_fix_y, cowl_fix_z])
+      rotate([0, s * 90, 0])
+        cylinder(d = cowl_fix_pad_d, h = cowl_fix_pad_t + cowl_wall);
 }
 
-module cowl_m3_cut() {
-  for (x = [m3_x_left, m3_x_right]) {
-    translate([x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
-      cylinder(d = m3_clear_d, h = m3_boss_len + 2*eps);
-    translate([x, m3_y0 - eps, m3_z_c]) rotate([-90, 0, 0])
-      cylinder(d1 = m3_lead_d, d2 = m3_clear_d, h = 0.5);
+module cowl_fix_cut() {
+  for (s = [-1, 1]) {
+    // clearance hole, all the way through wall + pad
+    translate([s * (cowl_fix_wall_x + eps), cowl_fix_y, cowl_fix_z])
+      rotate([0, -s * 90, 0])
+        cylinder(d = cowl_fix_clear_d,
+                 h = cowl_wall + cowl_fix_pad_t + 2 * eps);
+    // counterbore for the head, from the outside
+    translate([s * (cowl_fix_wall_x + eps), cowl_fix_y, cowl_fix_z])
+      rotate([0, -s * 90, 0])
+        cylinder(d = cowl_fix_head_d, h = cowl_fix_head_h + eps);
   }
+}
+
+// The yoke's side of the SAME joint — one ear per side, reading the same
+// derived numbers above. Called from yoke().
+module yoke_fix_ear() {
+  for (s = [-1, 1])
+    difference() {
+      hull() {
+        translate([s * cowl_fix_ear_x0, cowl_fix_y, (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
+          rotate([0, s * 90, 0])
+            cylinder(d = cowl_fix_ear_z1 - cowl_fix_ear_z0, h = eps);
+        translate([s * cowl_fix_ear_x1, cowl_fix_y, (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
+          rotate([0, -s * 90, 0])
+            cylinder(d = cowl_fix_ear_z1 - cowl_fix_ear_z0, h = eps);
+        // ⚠ center=true centres on ALL THREE axes. Placing this at
+        // cowl_fix_ear_z0 (as a first version did) put half the cube's own
+        // height BELOW it — the exported yoke reached z=-3.50, i.e. into the
+        // display, while cowl_fix_ear_z0's own assert (which reads the
+        // parameter, not the part) stayed green. The bbox gate in
+        // tools/build.sh is what catches this class; the fix is to centre on
+        // the ear's own mid-height.
+        translate([s * cowl_fix_ear_x0, cowl_fix_y,
+                   (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
+          cube([eps, cowl_fix_ear_w, cowl_fix_ear_z1 - cowl_fix_ear_z0], center = true);
+      }
+      // ⭐ Heat-set insert pocket, entered from the ear's own OUTER face —
+      // the same face the cowl's pad sits against, so the iron reaches it
+      // with the yoke on the bench and nothing else in the way.
+      translate([s * (cowl_fix_ear_x1 + eps), cowl_fix_y, cowl_fix_z])
+        rotate([0, -s * 90, 0])
+          cylinder(d = insert_m5_pocket_d, h = insert_m5_pocket_h + eps);
+      translate([s * (cowl_fix_ear_x1 + eps), cowl_fix_y, cowl_fix_z])
+        rotate([0, -s * 90, 0])
+          cylinder(d1 = insert_m5_pocket_d + 1.2, d2 = insert_m5_pocket_d,
+                   h = insert_lead + eps);
+      // Tip clearance past the insert, so a long bolt runs into air.
+      translate([s * (cowl_fix_ear_x1 - insert_m5_pocket_h + eps),
+                 cowl_fix_y, cowl_fix_z])
+        rotate([0, -s * 90, 0])
+          cylinder(d = cowl_fix_clear_d, h = cowl_fix_beyond + eps);
+    }
 }
 
 /* ---- PART: cowl --------------------------------------------------
@@ -2569,7 +2808,7 @@ module cowl_m3_cut() {
    (disp_corner_r)-cornered footprint with the deliberate reveal gap, a flat
    brow over the glass, ONE bottom opening, and no fastener visible or
    reachable from the front. */
-module cowl() {
+module cowl_shell() {
   difference() {
     union() {
       // Outer shell: R3 (fillet_out) on the BACK (visible, z=cowl_depth)
@@ -2586,7 +2825,6 @@ module cowl() {
       cowl_brow_riser_outer();
       cowl_brow_outer();
       cowl_hook();
-      cowl_m3_boss();
     }
 
     // Hollow it — the SAME cowl_outline(), just inset by cowl_wall, so the
@@ -2599,7 +2837,30 @@ module cowl() {
     cowl_brow_inner();
 
     cowl_opening_cut();
-    cowl_m3_cut();
+  }
+}
+
+/* ---- ⛔ ANY FEATURE THAT LIVES INSIDE THE CAVITY MUST BE ADDED AFTER IT.
+   This is the whole reason cowl() is split in two. The cavity subtraction
+   above sweeps the FULL inset outline from z=-eps to z=cowl_depth-cowl_wall.
+   Anything unioned into the shell that sits inside that volume — a boss, a
+   pad, a rib — is silently erased by it.
+     THAT IS NOT HYPOTHETICAL. The old M3 mounting bosses were unioned in
+   exactly that way and contributed EXACTLY 0.00 mm^3 to the exported part;
+   the cowl was shipped for weeks with no working attachment at all, and the
+   first version of the pad below reproduced it within the hour. Every
+   assertion passed both times, because assertions here check parameters and
+   the cavity erases geometry.
+     So the internal pad is unioned onto the ALREADY-HOLLOWED shell, and only
+   then is the screw hole drilled through both. tools/build.sh's own COWL
+   FIXING gate measures the exported part to confirm it. */
+module cowl() {
+  difference() {
+    union() {
+      cowl_shell();
+      cowl_fix_pad();
+    }
+    cowl_fix_cut();
   }
 }
 
@@ -3008,6 +3269,64 @@ part = "gauge";
 // to keep WORKING — but its message below is a plain hardcoded string, not
 // derived from the chain, so update that string in the same commit or the
 // hint text (only the hint, not the logic) goes stale.
+
+/* ---- PART: insert_coupon ------------------------------------------------
+   ⭐ THE GAUGE-FIRST RULE, APPLIED TO HEAT-SET INSERTS (2026-09-15).
+   This repository's own rule is to prove a fit on a cheap throwaway before
+   committing filament to a shaped part (docs/printing.md's print order, and
+   the fit gauge that already corrected a bearing surface by 3mm). Insert
+   pockets deserve the same treatment for a harder reason: **insert geometry
+   is not standardised.** Two kits both sold as "M5 heat-set" differ by more
+   than the fit tolerance, and the model's own insert_m5_od / insert_m5_len
+   are NOMINAL and unverified against the owner's kit.
+
+   Eight pockets, all 13mm deep (deeper than any common insert, so this tests
+   DIAMETER only — depth is not the variable). Two fits for each of M3, M4,
+   M5, M6: nominal OD minus 0.1, then minus 0.3.
+
+   ⚠️ THE CHAMFERED END IS M3. Read the pockets from that end:
+       M3-0.1  M3-0.3  M4-0.1  M4-0.3  M5-0.1  M5-0.3  M6-0.1  M6-0.3
+   There is no printed lettering on purpose — text() depends on a font being
+   installed, and this file is exported headless in CI where one may not be.
+
+   HOW TO READ IT: press one insert into each pocket of its own size with the
+   iron at ~240C for ASA. The right pocket is the one where the insert goes
+   in square under light pressure and sits flush, WITHOUT the boss bulging.
+   Too loose spins under torque; too tight splits the wall. Then set
+   insert_m5_od (and insert_fit) to what actually worked and re-export.      */
+insert_coupon_sizes = [ [3, 4.2], [4, 5.0], [5, 7.0], [6, 8.0] ];
+insert_coupon_fits  = [ 0.1, 0.3 ];
+insert_coupon_pitch = 12;
+insert_coupon_h     = 15;
+insert_coupon_deep  = 13;
+
+module insert_coupon() {
+  n = len(insert_coupon_sizes) * len(insert_coupon_fits);
+  l = n * insert_coupon_pitch + insert_coupon_pitch;
+  w = 18;
+  difference() {
+    // body, with one end chamfered so "which end is M3" needs no lettering
+    hull() {
+      translate([insert_coupon_pitch/2, 0, 0])
+        cube([l - insert_coupon_pitch, w, insert_coupon_h], center = false);
+      translate([0, w/2, insert_coupon_h/2])
+        rotate([0, 90, 0]) cylinder(d = 6, h = eps);
+    }
+    for (i = [0 : n - 1]) {
+      sz  = insert_coupon_sizes[floor(i / len(insert_coupon_fits))];
+      fit = insert_coupon_fits[i % len(insert_coupon_fits)];
+      translate([insert_coupon_pitch * (i + 1), w/2,
+                 insert_coupon_h - insert_coupon_deep])
+        cylinder(d = sz[1] - fit, h = insert_coupon_deep + eps);
+      translate([insert_coupon_pitch * (i + 1), w/2,
+                 insert_coupon_h - insert_lead])
+        cylinder(d1 = sz[1] - fit, d2 = sz[1] - fit + 1.2,
+                 h = insert_lead + eps);
+    }
+  }
+}
+
+
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
 else if (part == "pivot_puck_test") pivot_puck_test();
@@ -3018,6 +3337,7 @@ else if (part == "arm") arm();
 else if (part == "cap") cap();
 else if (part == "cowl") cowl();
 else if (part == "brow_test") brow_test();
+else if (part == "insert_coupon") insert_coupon();
 else if (part == "assembly") assembly();
 else if (part == "plate") plate();
 else if (part == "pitch_probe_fixed") pitch_probe_fixed();

@@ -5,9 +5,10 @@
 | Where | Part | Note |
 |---|---|---|
 | Display → yoke | **3 × M5 × 12** socket cap | ⚠️ **no washer, never longer** — see below |
-| Pivot | **1 × M6** + nyloc | length set by your stack |
-| Bar clamp | **2 × M5** + nyloc | or heat-set brass inserts in the arm |
-| Cowl → yoke | **2 × M3** | upward through the bottom rim |
+| Pivot | **1 × M6** + nyloc | ⛔ **not an insert** — see `docs/design-notes.md`. Length set by your stack |
+| Bar clamp | **2 × M5 × 16** + **2 × M5 heat-set inserts** | inserts go in the **arm's** ears, from the top. No nuts |
+| Cowl → yoke | **2 × M5 × 12** + **2 × M5 heat-set inserts** | inserts go in the **yoke's side ears**. Heads recess into the cowl's side walls |
+| Heat-set inserts | **4 × M5 (Ø7 × 5 long)** | ⬜ print `insert_coupon` first and confirm the pocket fit |
 | Clamp bore | a strip of **inner-tube rubber** | protects the bar and takes up ovality |
 
 Medium-strength threadlocker for the three display bolts.
@@ -45,7 +46,15 @@ you get **4 mm engaged and 1 mm of air**.
    want to be cranked.
 5. **Route the loom** down behind the arm, leaving a service loop so the bars can reach full lock
    without tugging the connectors.
-6. **Fit the cowl last.** Hook the top lip first, then two M3 up through the bottom rim.
+6. **Fit the cowl last.** Hook the top lip over the display's top edge first, rotate the cowl down,
+   then drive one **M5 × 12** in through each side wall into the yoke's ear. The heads recess below
+   the side face; nothing shows on the back.
+
+**Press the inserts before any assembly.** Four M5s: one in each of the arm's two ears (from the
+top face), one in each of the yoke's two side ears (from the outer face). Iron at ~240 °C for ASA,
+straight and slow, and let it cool before loading the thread. ⬜ **Print `insert_coupon` first** —
+insert fit is the one dimension in this project that depends on your supplier rather than on the
+display, and a pocket that is 0.2 mm out either spins or splits.
 
 **Service order is the reverse:** cowl → arm → yoke. The lone M5's head is clear, but the arm must
 come off before the yoke can.

@@ -26,6 +26,7 @@ left/right variant.
 | `arm` (×2) | bore-side down (clamp bore horizontal) | ⬜ **Spline orientation open**, same reason as the yoke above — the male spline's own disc is no longer a flat face at either Z extreme (it faces sideways, arm-local Y), so there is no single flip that puts it flat on the bed alongside the bore. Not slicer-checked |
 | `cap` (×2) | bore-side down | no supports needed |
 | `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up. Its bottom opening is now one symmetric notch (⭐ 2026-09-15) wide enough for both legs and both clamps |
+| `insert_coupon` | flat, pockets facing up | throwaway; the pockets must print upward or their diameter is at the mercy of bridging |
 | `brow_test` | **riser end on the bed, visor pointing up** — the same way up as the cowl | measured **0 mm² of overhang**, because the visor narrows all the way up. ⚠️ This used to say "flat", which is the **worst of the six axis-aligned orientations** (8874 mm² of steeply down-facing area). Footprint 161 × 22.5 mm, 67 mm tall — use a brim |
 
 ## Settings
@@ -83,6 +84,11 @@ enforce print orientation.
 
 The order exists to catch mistakes cheaply. Do not skip ahead.
 
+0. **`insert_coupon`** — eight pockets, two fits each for M3/M4/M5/M6, all 13 mm deep so only the
+   diameter is under test. Press one insert of each size in and find which pocket seats square and
+   flush without bulging the boss. ⚠️ **The chamfered end is M3**, and the order from there is
+   M3−0.1, M3−0.3, M4−0.1, M4−0.3, M5−0.1, M5−0.3, M6−0.1, M6−0.3. Then set `insert_fit` (and
+   `insert_m5_od` if your inserts differ from the kit's Ø7 × 5) and re-export. Minutes to print.
 1. **`gauge`** — proves the hole pattern, the slot, the flat-band assumption and your bolt length
    against the real display. Short print. Everything downstream inherits that hole pattern, so if it
    is wrong you want to know now.

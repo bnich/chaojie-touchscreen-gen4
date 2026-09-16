@@ -30,7 +30,7 @@ fi
 mkdir -p stl renders
 
 # parts implemented so far; extend as they land
-PARTS=(gauge spline_test yoke arm cap cowl brow_test)   # extend as parts land
+PARTS=(gauge spline_test yoke arm cap cowl brow_test insert_coupon)   # extend as parts land
 
 for part in "${PARTS[@]}"; do
   out="stl/gen4-${part//_/-}.stl"
@@ -279,8 +279,15 @@ echo "--- throat search (the section scan above cuts on ONE axis; this sweeps) -
 # because its own scan is single-axis too (Z). It comes out at 234 mm^2, close
 # to its 261.6 mm^2 axis-aligned minimum, i.e. no hidden weak plane -- which is
 # a result, not a foregone conclusion, and is why it is checked here.
+# ⚠ --from must be a point in REAL MATERIAL. 25,9,5 was, until the heat-set
+# insert pocket (Ø6.8 at x=+-28) swallowed it on 2026-09-15 and the gate
+# started reporting CANNOT MEASURE. That is the right behaviour -- a loud
+# refusal beats a number measured from a point floating in a bore -- but it
+# means this coordinate has to be re-checked whenever the clamp's own
+# features move. 20,9,3 is in the clamp tube's wall, clear of the bore, the
+# ear pockets and the split plane.
 "$PY" tools/check_throat.py stl/gen4-arm.stl \
-  --from=25,9,5 --to=0,9,62 --min 200 \
+  --from=20,9,3 --to=0,9,62 --min 200 \
   --label "arm: clamp -> male spline" || exit 1
 
 echo "--- whole-yoke fill sanity (guards against a hollow riser/transition)"
@@ -663,6 +670,25 @@ if not ok:
 print("    OK — elevation tracks theta 1:1, roll and the hinge axis itself stay fixed.")
 PYEOF
 rm -f stl/_pitch_fixed.stl stl/_pitch_arm_*.stl
+
+# ⭐ COWL FIXING GATE, added 2026-09-15 -- the check that should have caught
+# a cowl with no attachment at all. Owner: "how does the cowl attach? it has
+# no bolts?" It did not. The old M3 bosses were unioned into the shell and
+# then ERASED by the cavity subtraction (the exported cowl's volume was
+# identical, to 0.00 mm^3, with the boss module on and forced off), and even
+# had they survived they pointed at air -- 21.8mm from the nearest yoke
+# material. Every assertion in that block passed, because assertions check
+# parameters and a later boolean removes geometry.
+#   This walks the screw's own axis through BOTH exported meshes and measures
+# what is actually there. Proven to fire: run against the committed pre-fix
+# pair on the old M3 axis it reports "passes through NO material".
+echo "--- cowl fixing: does the screw go through the cowl and into the yoke? ---"
+"$PY" tools/check_fixing.py stl/gen4-cowl.stl stl/gen4-yoke.stl \
+  --at=80.5,-4,6.5 --along=-1,0,0 --min-grip 10 --max-gap 0.6 \
+  --label "right side M5x12" || exit 1
+"$PY" tools/check_fixing.py stl/gen4-cowl.stl stl/gen4-yoke.stl \
+  --at=-80.5,-4,6.5 --along=1,0,0 --min-grip 10 --max-gap 0.6 \
+  --label "left side M5x12" || exit 1
 
 # ⭐ Does the visor actually shade the screen? See tools/check_shade.py for
 # why this exists: "projects 19 mm" passed while the brow projected -7 mm.

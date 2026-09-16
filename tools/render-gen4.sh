@@ -31,7 +31,7 @@ mkdir -p stl renders
 # of their own -- assembly() is stand-ins-and-colour only, not a fabricated
 # object, and plate() is exported separately below since it needs its own
 # check_stl.py call).
-PARTS=(gauge spline_test yoke arm cap cowl brow_test)
+PARTS=(gauge spline_test yoke arm cap cowl brow_test insert_coupon)
 
 FAIL=0
 
