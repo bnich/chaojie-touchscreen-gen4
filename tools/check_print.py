@@ -59,6 +59,21 @@ def analyse(mesh, up, pitch):
     cell = pitch * pitch
 
     bed = g[:, :, 0].sum() * cell
+    # ⭐ FIRST-LAYER ISLANDS, each on its own. This is how a tangent contact
+    # shows itself: a round feature resting on its own lowest point lands as a
+    # tiny isolated patch that the rest of the part cannot help hold down. The
+    # yoke's two Ø40 pivot discs read 92mm^2 each this way before they were
+    # given a flat to land on.
+    lab0, n0 = ndimage.label(g[:, :, 0])
+    first = []
+    for i in range(1, n0 + 1):
+        sel = lab0 == i
+        idx = np.argwhere(sel)
+        c = idx.mean(axis=0)
+        first.append((sel.sum() * cell,
+                      c[0] * pitch + m.bounds[0][0],
+                      c[1] * pitch + m.bounds[0][1]))
+    first.sort(key=lambda t: -t[0])
     floats = []
     for k in range(1, nz):
         layer = g[:, :, k]
@@ -87,7 +102,7 @@ def analyse(mesh, up, pitch):
             floats.append((area, k * pitch,
                            c[0] * pitch + m.bounds[0][0],
                            c[1] * pitch + m.bounds[0][1], 0.0))
-    return bed, floats, m.extents
+    return bed, floats, m.extents, first
 
 
 def _vec(s):
@@ -104,7 +119,12 @@ def main():
     ap.add_argument("--up", type=_vec, required=True)
     ap.add_argument("--pitch", type=float, default=0.4)
     ap.add_argument("--max-island", type=float, default=None,
-                    help="fail if any floating island exceeds this mm^2")
+                    help="fail if any patch laid over air exceeds this mm^2")
+    ap.add_argument("--min-first-island", type=float, default=None,
+                    help="fail if any FIRST-LAYER island is under this mm^2. A "
+                         "tiny one is a tangent contact -- a round feature "
+                         "resting on its own lowest point, which is what put "
+                         "the yoke's pivot discs on the floor")
     ap.add_argument("--label", default="")
     a = ap.parse_args()
 
@@ -113,11 +133,23 @@ def main():
         print(f"    UNTRUSTED: {a.stl} is not watertight")
         return 2
 
-    bed, floats, ext = analyse(m, a.up, a.pitch)
+    bed, floats, ext, first = analyse(m, a.up, a.pitch)
     name = a.stl.split("/")[-1]
     tag = f" ({a.label})" if a.label else ""
     print(f"    {name}{tag}: {ext[0]:.0f} x {ext[1]:.0f} mm footprint, "
-          f"{ext[2]:.0f} mm tall, {bed:.0f} mm^2 on the bed")
+          f"{ext[2]:.0f} mm tall, {bed:.0f} mm^2 on the bed "
+          f"({bed/ext[2]:.0f} mm^2 per mm of height)")
+    print(f"        first layer is {len(first)} island(s):", end="")
+    for area, cx, cy in first[:5]:
+        warn = "  <-- SMALL" if area < 120 else ""
+        print(f"\n          {area:8.1f} mm^2 near [{cx:7.1f} {cy:7.1f}]{warn}", end="")
+    print(f"\n          ... and {len(first)-5} more" if len(first) > 5 else "")
+    if a.min_first_island is not None and first and first[-1][0] < a.min_first_island:
+        area, cx, cy = first[-1]
+        print(f"    FAIL: a first-layer island of only {area:.1f} mm^2 near "
+              f"[{cx:.1f} {cy:.1f}], under the {a.min_first_island:.0f} mm^2 floor. "
+              f"That is a feature standing on a tangent; give it a flat.")
+        return 1
     if not floats:
         print("        nothing is laid over air")
         return 0

@@ -703,6 +703,23 @@ for part in gauge yoke arm cap cowl brow-test insert-coupon; do
   "$PY" tools/check_necks.py "stl/gen4-$part.stl" --erode 0.5 --max-island 50 || exit 1
 done
 
+# ⭐ PRINTABILITY GATE, added 2026-09-16. Two prints failed on the bed before
+# anything in this file noticed. Each part is sliced in its own documented
+# orientation and checked for a first-layer island under 60 mm^2 -- a round
+# feature resting on its own TANGENT, which is exactly what put the yoke's two
+# Ø40 pivot discs on the floor at 56.6 mm^2 each. Proven to fire against the
+# geometry from commit 89bec7a.
+#   ⚠ The "laid over air" figures it prints are REPORTED, not gated: the cowl
+# legitimately carries 4472 mm^2 (its visor riser overhangs the box) and the
+# yoke 2171. Those need support, not a smaller number -- docs/printing.md says
+# so. Only the tangent case is a hard failure.
+echo "--- printability: first-layer islands and material laid over air ---"
+"$PY" tools/check_print.py stl/gen4-gauge.stl         --up=0,0,1  --min-first-island 60 || exit 1
+"$PY" tools/check_print.py stl/gen4-insert-coupon.stl --up=0,0,1  --min-first-island 60 || exit 1
+"$PY" tools/check_print.py stl/gen4-yoke.stl          --up=0,0,1  --min-first-island 60 || exit 1
+"$PY" tools/check_print.py stl/gen4-cowl.stl          --up=0,0,-1 --min-first-island 60 || exit 1
+"$PY" tools/check_print.py stl/gen4-brow-test.stl     --up=0,0,-1 --pitch 0.6 --min-first-island 60 || exit 1
+
 # ⭐ COWL EAR BOND GATE, added 2026-09-15 -- "the new ears are barely
 # connected." They were: the yoke's bearing plate is a truss whose outer edge
 # runs diagonally, so how far it reaches in X depends strongly on Y -- x=51.5

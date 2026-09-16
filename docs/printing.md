@@ -24,7 +24,7 @@ left/right variant.
 | `gauge` | flat, as exported | trivial |
 | `yoke` | **bearing face on the bed** | that face must be flat and dimensionally true — it is what seats against the display. Now carries a spline at EACH end (mirrored) rather than one off to a side; the bearing face itself is unaffected by that. ⬜ **Spline orientation open** since the tilt-joint fix (`docs/design-notes.md`'s DM-6): each pivot boss faces sideways (its axis parallel to the bar), so with the bearing face down each Ø40 disc stands with its face vertical, a puck hanging off its own leg, rather than the flat "teeth as vertical walls off a horizontal disc" of the pre-fix geometry. Whether that needs support has not been slicer-checked |
 | `arm` (×2) | ⭐ **LAID FLAT — clamp bore vertical** (rotate −90° about X in the slicer, or 'place on face' and pick the big flat side). 70 × 65 mm footprint, **18 mm tall** | ⚠️ **Changed 2026-09-16, after two prints in a row turned to spaghetti.** Standing upright it is a **65 mm tower on 262 mm² of bed contact** — 4 mm² per mm of height, where every other part in this repository is 11 to 515. Laid flat: **868 mm² of contact and 18 mm tall**, 2.8× the grip and a third of the height. Cost: two small islands (17 mm² each) start 2 mm up and want support. ⭐ It also settles the layer-direction question that was left open here — the rib's bending load now lies *within* the layer plane instead of across it, which is the stronger way to stack it |
-| `cap` (×2) | bore-side down | no supports needed |
+| `cap` (×2) | ⭐ **LAID FLAT**, same rotation as the arm (−90° about X) | ⚠️ **Changed 2026-09-16.** Bore-side down it is 312 mm² on the bed (13 mm² per mm of height) with 593 mm² laid over air. Flat it is **868 mm² on the bed and only 223 mm² over air** — better on *both* counts, unlike the arm where flat costs some overhang. Its two ear bosses start 1 mm up either way; that gap is the clamp's pinch gap and is functional |
 | `cowl` | **visible face down on a textured sheet** | ⭐ this is the whole reason the cowl is a separate part. The surface people see becomes one uniform moulded-looking texture rather than stacked layer lines. Ribs and bosses face up. Its bottom opening is now one symmetric notch (⭐ 2026-09-15) wide enough for both legs and both clamps |
 | `insert_coupon` | flat, pockets facing up | throwaway; the pockets must print upward or their diameter is at the mercy of bridging |
 | `brow_test` | **riser end on the bed, visor pointing up** — the same way up as the cowl | measured **0 mm² of overhang**, because the visor narrows all the way up. ⚠️ This used to say "flat", which is the **worst of the six axis-aligned orientations** (8874 mm² of steeply down-facing area). Footprint 161 × 22.5 mm, 67 mm tall — use a brim |
@@ -77,6 +77,14 @@ the far corners first.
   should ever go above that.
 - **Brim, 8–10 mm.** Cheap insurance on both wide parts.
 - Slow the first layer and give it a little extra squish.
+
+### ⛔ The cowl and the yoke REQUIRE support — turn it on
+
+**The cowl is the worst of the set**, despite having the best bed adhesion (11807 mm²). Measured:
+**4472 mm² laid over air**, dominated by a single **2092 mm² region that begins 22.4 mm up** — the sun
+visor's riser, which is full-width and reaches 12.5 mm beyond the box's own top edge, so it appears in
+mid-air — followed by **1183 mm² more at 30.4 mm** as the visor carries on past the front rim. Nothing
+sits under either, all the way down to the bed, so **support on build plate only** reaches them.
 
 ### ⛔ The yoke REQUIRES support — turn it on
 

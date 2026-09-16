@@ -51,6 +51,32 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
 ### Fixed (2026-09-16)
+- **Swept every part for the tangent problem, and found two more things.**
+  | part | on the bed | per mm of height | laid over air | verdict |
+  |---|---|---|---|---|
+  | `gauge` | 4194 mm² | 524 | **0** | clean |
+  | `brow_test` | 3772 mm² | 56 | **0** | clean |
+  | `insert_coupon` | 1774 mm² | 118 | 61 mm² | trivial |
+  | `cowl` | 11807 mm² | 132 | **4472 mm²** | ⚠️ needs support |
+  | `yoke` | 3879 mm² | 97 | 2171 mm² | needs support |
+  | `cap` | 312 → **868** mm² | 13 → **48** | 593 → **223** mm² | ⚠️ lay it flat |
+  | `arm` | 868 mm² | 48 | 1432 mm² | flat, already changed |
+
+  **The cowl is the worst in the set** despite having the best adhesion. A single **2092 mm² region
+  begins 22.4 mm up** — the visor's riser is full width and reaches 12.5 mm past the box's own top
+  edge, so it appears in mid-air — with **1183 mm² more at 30.4 mm** as the visor carries on past the
+  front rim. Nothing sits under either all the way to the bed, so build-plate-only support reaches
+  them. `docs/printing.md` now says the cowl requires support; it previously only listed a
+  down-facing area and left it to a slicer preview.
+  **The `cap` gets laid flat too**, the same −90° rotation as the arm. Bore-side down it is 312 mm² on
+  the bed with 593 mm² over air; flat it is **868 mm² and 223 mm²** — better on *both* counts, unlike
+  the arm where flat buys adhesion at the cost of some overhang.
+  `gauge` and `brow_test` are the only two parts with **nothing at all laid over air**.
+  ⭐ **New printability gate** in `tools/build.sh`: fails on any first-layer island under 60 mm², which
+  is what a tangent contact looks like. Proven against commit 89bec7a's yoke, where the two pivot
+  discs read **56.6 mm² each**. The "laid over air" figures are reported, not gated — the cowl's
+  4472 mm² is legitimate and wants support, not a smaller number.
+
 - **The pivot discs stood on a tangent; they now land on a flat.** Owner: *"it fails where the
   circular part sits off by itself"*, then *"can we make the circular part that is nearest the bed
   connect to it flat? that would fix it"*. Right on both counts.
