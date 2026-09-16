@@ -54,7 +54,7 @@ the bed) and not sitting on the plate, plus how high the highest such face sits.
 | `insert_coupon` | 71 mm² | 1 mm | the chamfer on its own rounded end |
 | `brow_test` | **0 mm²** | — | genuinely support-free, in the corrected orientation above |
 | `cap` | 703 mm² (13 %) | 17 mm | mostly the clamp bore's own ceiling |
-| `yoke` | 3560 mm² (14 %) | 36 mm | the two sideways spline pucks, plus the cowl-fixing ears |
+| `yoke` | 2946 mm² (11 %) | 36 mm | the two sideways spline pucks |
 | `arm` | 1287 mm² (13 %) | 62 mm | the bore's ceiling, plus the sideways male spline disc |
 | `cowl` | 5148 mm² (7 %) | 89 mm | the shell's internal ribs, bosses and side pads |
 
@@ -63,8 +63,27 @@ about 45° and then a short bridge, which is why the bore dominates the `arm`/`c
 being a problem. **Put each part through your own slicer and look at the support preview** before
 committing filament — the table above is a geometric screen, not a slicer.
 
-⚠️ **Bed size.** The yoke's footprint is **143.8 × 107.1 mm** — it grew when the cowl-fixing
-ears were added, and it is the largest single part. The cowl is 161.0 × 107.5 mm.
+⚠️ **Bed size.** The yoke's footprint is **143.8 × 107.1 mm** — the largest single part. The cowl is
+161.0 × 107.5 mm.
+
+### ⚠️ ASA on a part this wide
+
+The yoke is 144 mm across and the cowl 161 mm, both in a material that shrinks. Warping shows up at
+the far corners first.
+
+- **Enclosure, and no draught.** This is the single biggest factor for ASA.
+- **Bed 100–110 °C**, and clean it — ASA lifts off residue long before it lifts off glass.
+- **Fan off, or under 20 %.** ASA warps and delaminates with high fan. Only bridge and overhang fan
+  should ever go above that.
+- **Brim, 8–10 mm.** Cheap insurance on both wide parts.
+- Slow the first layer and give it a little extra squish.
+
+⭐ **The yoke's cowl-fixing ears used to lift, and that was the model's fault, not a setting.** Their
+undersides sat 0.8–2.4 mm above the bed, sloping only 5° — a 21 mm unsupported shelf per side at the
+part's outermost corners, which is where shrinkage pulls hardest. They now sit **coplanar with the
+bearing face**, flat on the bed: the part's footprint reaches its full ±71.9 mm, bed contact went from
+3133 to **3745 mm²**, and no column of either ear begins in mid-air. If you are printing an older
+export and see them curl, that is why.
 
 ⬜ **Not slicer-checked.** The `yoke` and `arm` spline orientations have been an open question since
 the tilt-axis fix (each pivot boss now faces sideways, so its Ø40 disc stands with its face vertical).

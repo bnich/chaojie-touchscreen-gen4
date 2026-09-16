@@ -50,6 +50,34 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   7.5° clicks move elevation by exactly 22.500°, roll stays at 0.0000000, hinge-axis drift 0.000000°.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
+### Fixed (2026-09-16)
+
+- **The yoke's cowl-fixing ears would not print.** Owner, mid-print: *"the ears are shrinking and
+  lifting off of the plate."* Not a settings problem — the geometry was asking for the impossible.
+  `cowl_fix_ear_z0` was 2.5, holding each ear clear of the display "for safety". That left its
+  underside **0.8–2.4 mm above the bed across 21 mm of span, sloping 5° from horizontal** — a flat
+  shelf printed into thin air, at the outermost corners of a 144 mm ASA part, which is exactly where
+  shrinkage pulls hardest. Measured on the export: the part touched the bed only out to x = ±50.7
+  while reaching ±71.9.
+  **Fixed** by dropping the ear's underside to **z = 0, coplanar with the bearing face**, so it lies
+  flat on the bed. ⚠️ The original reason for holding it clear does not apply to a *coplanar* surface:
+  that is not a second contact plane, it is more of the same one, so it cannot rock the plate — only
+  something standing **proud** of the bearing face could. Outside the flat band the shell chamfers
+  away, so the worst case is that the ear bears on nothing, which costs nothing.
+  ⚠️ Two passes were needed. The first moved only the boss to z = 0 and left the root and mid stations
+  at 0.5, sloping the underside 1.2° over 23 mm — still a horizontal overhang, and 8 of 10 sampled
+  columns still began above the bed. **Every station has to share one underside plane**, or it is not
+  fixed.
+  Result: footprint now reaches the full **±71.9 mm**, bed contact **3133 → 3745 mm²**, off-bed
+  overhang **3560 → 2946 mm²** (what remains is the spline pucks, which were always there), and
+  **0 of 10** ear columns begin in mid-air.
+  ⚠️ **The overhang number was already in front of me and I did not act on it.** The 2026-09-16 audit
+  recorded the yoke's down-facing area rising 2644 → 3560 mm² when the ears were added, and filed it
+  as a stale figure to update rather than asking *where* the new 900 mm² was. A measurement that moves
+  35 % is a question, not a line to correct.
+- **`docs/printing.md` gained an ASA section** for the two wide parts — enclosure, bed temperature,
+  fan under 20 %, brim — and the overhang table now reads 2946 mm² for the yoke.
+
 ### Audit (2026-09-16)
 
 A full pass over every part, joint, assertion and document. What it found:

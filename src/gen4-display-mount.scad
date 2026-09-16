@@ -2802,18 +2802,40 @@ cowl_fix_ear_mid_x  = 49;   // where it leaves the plate's back face. Past the
 cowl_fix_ear_root_w = 20;   // Y width at the root
 cowl_fix_ear_mid_w  = 14;   // Y width where it lifts off
 cowl_fix_ear_w   = 16;    // ear's Y width at the boss
-cowl_fix_ear_z0  = 2.5;   // ear's underside, model Z. NOT 0 — see the ⚠️ above:
-                          // this is what guarantees the ear cannot touch the
-                          // display's (unmeasured, probably curving) shell out
-                          // at x=+-73.6.
+cowl_fix_ear_z0  = 0;     // ⭐ ear's underside, model Z — COPLANAR WITH THE
+                          // BEARING FACE (2026-09-16).
+                          // ⚠️ THIS WAS 2.5, AND IT MADE THE PART UNPRINTABLE.
+                          // Held off the display "for safety", the ear's
+                          // underside became 21mm of unsupported shelf per
+                          // side, sloping only 5 degrees from horizontal —
+                          // effectively a flat overhang printed into thin air,
+                          // at the far corners of a 144mm ASA part where
+                          // shrinkage pulls hardest. Owner, printing it: "the
+                          // ears are shrinking and lifting off of the plate."
+                          // Measured on the export: the part touched the bed
+                          // only out to x=+-50.7 while reaching +-71.9.
+                          //   At 0 the ear's underside is the SAME PLANE the
+                          // bearing face already sits on, so it lies flat on
+                          // the bed: no overhang at all, and ~1900mm^2 of
+                          // extra bed contact exactly where the warping was.
+                          // ⚠️ AND IT CANNOT ROCK THE PLATE, which is why >0
+                          // was chosen originally. A surface COPLANAR with the
+                          // bearing face is not a second contact plane — it is
+                          // more of the same one. The old worry only applies
+                          // to something standing PROUD of it. Outside the
+                          // flat band the shell chamfers AWAY (recedes), so
+                          // the worst case out here is that the ear floats and
+                          // bears on nothing, which costs nothing: the three
+                          // M5s clamp the plate's own footprint regardless.
 cowl_fix_ear_z1  = 15.5;  // ear's top, model Z.
 
 
-assert(cowl_fix_ear_z0 > 0,
-  str("COWL FIXING EAR TOUCHES THE DISPLAY: cowl_fix_ear_z0 (", cowl_fix_ear_z0,
-      ") must stay above z=0. The ear reaches x=", cowl_fix_ear_x1,
-      ", far outside the X range display-geometry.md has ever measured the ",
-      "flat bearing band over — it must bear on nothing."));
+assert(cowl_fix_ear_z0 >= 0,
+  str("COWL FIXING EAR CUTS INTO THE DISPLAY: cowl_fix_ear_z0 (",
+      cowl_fix_ear_z0, ") must not go below z=0, the display's own back face. ",
+      "Zero is correct and deliberate — coplanar with the bearing face, so it ",
+      "lies flat on the print bed and cannot rock the plate. Negative would ",
+      "mean interference."));
 assert(cowl_fix_z - cowl_fix_pad_d/2 > 0,
   str("COWL FIXING PAD BITES THE DISPLAY: the pad is a Ø", cowl_fix_pad_d,
       " cylinder centred at z=", cowl_fix_z, ", so its underside reaches z=",
@@ -2919,14 +2941,21 @@ module yoke_fix_ear() {
         // reach over the upper M5's socket sweep.
         hull() {
           fix_ear_wp(s * cowl_fix_ear_root_x, cowl_fix_y,
-                     cowl_fix_ear_root_w, 0.5, yoke_t);
+                     cowl_fix_ear_root_w, cowl_fix_ear_z0, yoke_t);
           fix_ear_wp(s * cowl_fix_ear_mid_x, cowl_fix_y,
-                     cowl_fix_ear_mid_w, 0.5, yoke_t);
+                     cowl_fix_ear_mid_w, cowl_fix_ear_z0, yoke_t);
         }
         // mid -> boss: the cantilever proper, rising to the screw's height.
+        // ⚠ ITS UNDERSIDE STAYS AT cowl_fix_ear_z0 THE WHOLE WAY. Every
+        // station shares one underside plane, so this run lies FLAT on the
+        // bed instead of sloping. A first version left the root and mid
+        // stations at 0.5 while the boss sat at 0, which slopes the underside
+        // by half a millimetre over 23mm -- 1.2 degrees, still a horizontal
+        // overhang in mid-air, and 8 of 10 sampled columns still began above
+        // the bed. Shared plane, or it is not fixed.
         hull() {
           fix_ear_wp(s * cowl_fix_ear_mid_x, cowl_fix_y,
-                     cowl_fix_ear_mid_w, 0.5, yoke_t);
+                     cowl_fix_ear_mid_w, cowl_fix_ear_z0, yoke_t);
           fix_ear_wp(s * cowl_fix_ear_x1, cowl_fix_y, cowl_fix_ear_w,
                      cowl_fix_ear_z0, cowl_fix_ear_z1);
         }
