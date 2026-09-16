@@ -1,45 +1,76 @@
 # Chaojie Gen 4 5" touchscreen — handlebar mount and rear cowl
 
 A parametric, 3D-printable handlebar mount for the **Chaojie `CJ-V5-04`** 5" touchscreen display —
-the panel sold with FarDriver controllers by E-Conic, EMF and others. It ships with no bracket of any
-kind.
-
-Four printed parts (six on the bike — the clamp prints twice): a structural yoke that bolts to the
-display's three M5 inserts and grows a toothed-spline tilt joint **on each side** — **cannot creep**,
-and clamps the handlebar on **both** sides of the centre bracket instead of cantilevering off one —
-and a cosmetic rear cowl with an integrated sun visor, because on a moped the back of this display
-faces the world.
+the panel sold with FarDriver controllers by E-Conic, EMF and others. It ships with no bracket.
 
 <p align="center">
-  <img src="renders/display-rear-geometry.svg" width="88%" alt="Dimensioned rear-face drawing of the Chaojie CJ-V5-04, showing the three M5 mounting holes at (39.50, 40.9), (120.50, 40.9) and (80.00, 63.28), the Ø21.7 cable-boot collar at the centre, and the flat bearing band between Y 23.0 and Y 71.6">
+  <img src="renders/gen4-assembly-threequarter.png" width="88%" alt="Three-quarter render of the assembled mount: the display carried on a yoke with a toothed tilt joint at each side, two clamps on the handlebar either side of the centre bracket, and a red rear cowl with a curved sun visor projecting over the screen">
 </p>
+
+A structural **yoke** bolts to the display's three M5 inserts and carries a 48-tooth face-spline tilt
+joint at **each** side, on one shared axis parallel to the bar. Two **clamps** grip the handlebar on
+**both** sides of the centre bracket. A **cowl** encloses the back of the display and carries a sun
+visor over the glass.
+
+| | |
+|---|---|
+| Printed parts | 4 distinct, **6 on the bike** (the clamp arm and cap print twice) |
+| Tilt | 48 teeth, **7.5° per click** |
+| Screen height above the bar | bottom edge **52 mm**, top edge **146 mm** |
+| Grip on the bar | **~81 mm** total, split either side of the steering axis |
+| Sun visor | **33 mm** past the glass; shades **27.7 %** of the screen at 45° off the screen normal |
+| Material | ASA (PC or PETG-CF also suitable) |
 
 ---
 
-## 🚧 Status
-
-**Work in progress — not yet printable end to end.** Built and verified so far:
-
-| Part | State |
-|---|---|
-| **Fit gauge** | ✅ done, **printed and proven on a real display** — [`stl/gen4-gauge.stl`](stl) |
-| Face spline (tilt joint) | ✅ done — meshing proven geometrically |
-| **Yoke** | ✅ done, **⭐ two-sided (2026-09-15)** — [`stl/gen4-yoke.stl`](stl). A spline at **each** end of one shared, coaxial hinge axis, parallel to the handlebar (`docs/design-notes.md`'s DM-6), so the joint pitches the display instead of rolling it — proven with the pitch acceptance test in `tools/build.sh`, both sides mirror-consistent |
-| **Arm + clamp cap** | ✅ done, **print two of each — one clamp per side of the centre bracket** — [`stl/gen4-arm.stl`](stl), [`stl/gen4-cap.stl`](stl). Bore is a tapered cone matching the bar (`docs/bike-fitment.md`, ⬜ left side assumed to mirror the measured right side); male spline proven against the yoke's own female with `tools/check_fit.py`, both sides |
-| **Cowl + sun visor** | ✅ done, **⭐ visor reworked (2026-09-15)** — [`stl/gen4-cowl.stl`](stl), [`stl/gen4-brow-test.stl`](stl). One symmetric bottom opening clears both legs and both clamps; clears the yoke and the display itself too (proven with `tools/check_fit.py`, distinct boolean engine from the OpenSCAD/CGAL export). The visor reaches **33 mm past the glass** and its plan curve is a superellipse, measured at **27.7 % of the screen shaded** with the sun 45° off the screen normal (`tools/check_shade.py`, a build gate); ⬜ **not bench-verified — print `brow_test` and hold it against the screen on the bike before committing the cowl** |
-| **Assembly renders + print plate** | ✅ done — [`renders/`](renders). Every part positioned as it actually assembles (display and handlebar shown as stand-ins, not printed, both clamps shown), plus the 4 printable parts laid out flat in their print orientation. Clearance re-proven with `tools/check_fit.py` on the positioned exports |
-
-**The fit gauge is printable today**, and it is the right thing to print first regardless (see below).
-Watch the repo or check [CHANGELOG.md](CHANGELOG.md) for the rest.
+## Exploded view
 
 <p align="center">
-  <img src="renders/gen4-assembly-iso.png" width="43%" alt="Isometric render of the full assembly: display, yoke, cowl, arm, clamp cap, handlebar stub and centre-bracket stub, each a distinct colour">
-  <img src="renders/gen4-plate.png" width="43%" alt="The four printable parts -- yoke, arm, cap, cowl -- laid flat on one print plate in their print orientation">
+  <img src="renders/gen4-exploded.png" width="94%" alt="Exploded diagram: the red cowl with its two side screws, the gold yoke with three M5 bolts and two heat-set inserts, the grey display, and the two blue clamp arms with their green caps, clamp bolts, pivot bolts and nuts, on the silver handlebar either side of the brown centre bracket">
 </p>
 
-> These are plain OpenSCAD preview renders (`--viewall --autocenter`, no `--render`) — flat-coloured
-> CAD shots, not photorealistic mocks. `tools/render-gen4.sh` rebuilds every STL and every PNG,
-> including the assembly's iso/side/front views, from the current model.
+| Colour | Item |
+|---|---|
+| Red | Cowl (printed) |
+| Gold | Yoke (printed) |
+| Blue | Clamp arm (printed, ×2) |
+| Green | Clamp cap (printed, ×2) |
+| Dark grey | Display — not printed |
+| Silver / brown | Handlebar and its centre bracket — not printed |
+| Brass | Heat-set inserts |
+
+---
+
+## Hardware
+
+| Joint | Fastener | Count | Notes |
+|---|---|---|---|
+| Display → yoke | **M5 × 12** socket cap | 3 | ⚠️ **No washer, never longer.** The display's thread is 5 mm deep |
+| Bar clamp, arm → cap | **M5 × 16** socket cap | 4 | Into inserts in the arm; heads counterbored into the cap's underside |
+| Cowl → yoke | **M5 × 12** socket cap | 2 | Into inserts in the yoke's side ears; heads recess below the cowl's side face |
+| Tilt pivot | **M6 × 35** + nyloc + plain washer | 2 | 26.0 mm grip, 7.3 mm into the nut |
+| Heat-set inserts | **M5, Ø7 × 5 long** | 8 | 4 in the arms (2 each), 2 in the yoke; buy spares |
+| Clamp bore liner | inner-tube rubber strip | 2 | Protects the bar and takes up ovality |
+
+Medium-strength threadlocker on the three display bolts.
+
+**Insert placement.** Two per clamp arm, pressed into the top face of each ear. Two in the yoke,
+pressed into the outer face of each side ear. None in the cap, none in the cowl.
+
+⛔ **No insert at the tilt pivot.** The M6 runs up the spline's own Ø12 central bore; an M6 insert is
+Ø8 and would leave 2 mm of wall in the middle of the tooth ring. It is also the only joint here loaded
+purely in tension, where a through-bolt and nut put the plastic in compression between two steel
+faces. Use the through-bolt.
+
+### Bolt lengths are derived
+
+Each length is computed from the stack it crosses and asserted in the model. Change a part thickness
+and the render stops and names the size it now needs.
+
+```
+pivot_grip = leg_w/2 + yoke_tip_h + spline_seat + arm_tip_h − pivot_head_sink
+           = 9 + 6 + 7.6 + 6 − 2.5  =  26.1 mm   →  M6 × 35 with a 1.6 mm washer
+```
 
 ---
 
@@ -48,48 +79,23 @@ Watch the repo or check [CHANGELOG.md](CHANGELOG.md) for the rest.
 It fits the **`CJ-V5-04`** — the 5", 800 × 480, DC 12–96 V panel with a `DJ7091A-2.8-11` 9-pin main
 lead and a cable bundle emerging from the middle of its back.
 
-It does **not** fit the 3" `CJ-V3-01` or the Gen 3 touchscreen; different housings, different hole
+It does **not** fit the 3" `CJ-V3-01` or the Gen 3 touchscreen — different housings, different hole
 patterns.
 
-Measure before you print. The drawing above is the whole test: three M5 holes, 81.0 mm apart with a
-third 22.39 mm below the centre of that pair.
+<p align="center">
+  <img src="renders/display-rear-geometry.svg" width="80%" alt="Dimensioned rear-face drawing of the Chaojie CJ-V5-04: three M5 mounting holes at (39.50, 40.9), (120.50, 40.9) and (80.00, 63.28), the diameter 21.7 cable-boot collar at the centre, and the flat bearing band between Y 23.0 and Y 71.6">
+</p>
+
+Three M5 holes, 81.0 mm apart, with a third 22.39 mm below the centre of that pair. Full dimensions
+in [docs/display-geometry.md](docs/display-geometry.md).
 
 ---
 
-## Start here: print the fit gauge
+## Fitting it to your bar
 
-Everything in this design hangs off the three-hole pattern. **Prove it on your own unit** before
-printing anything larger:
-
-```bash
-# pre-built, or rebuild it yourself:
-openscad -o stl/gen4-gauge.stl -D 'part="gauge"' src/gen4-display-mount.scad
-```
-
-Print it flat, no supports, any filament you have loaded. Then:
-
-1. **Does it sit flat** on the raised band on the display's back, without rocking?
-2. **Do three M5 × 12 bolts thread in** and pull the gauge tight — *by hand*, before any tool?
-3. **Does the slot clear the cable boot** with the loom in place?
-
-If all three pass, the hole pattern is proven and everything else can be built on it.
-
-⚠️ **On question 2, the answer matters more than it looks.** Those inserts give **5 mm of usable
-thread — one bolt diameter.** A bolt that bottoms out feels tight and is holding nothing at all. This
-is why the gauge is 8 mm thick rather than a thin plate: at 8 mm it tests the exact engagement the
-real parts use, instead of a proxy for it. See [docs/assembly.md](docs/assembly.md).
-
----
-
-## Making it fit your bike
-
-📄 **[docs/bike-fitment.md](docs/bike-fitment.md)** — what the clamp needs from your bar, and where
-the screen ends up.
-
-⚠️ **Measure the bar diameter at three points along the run, not one.** A single reading cannot tell a
-tapered bar from a parallel one, and that decides whether the bore is a cone or a cylinder. On the
-REVV1 FS the bar tapers **1:10** through the clamp zone — a cylindrical bore there would touch on a
-line at one end only.
+The clamp bore is a **cone**, not a cylinder, because the REVV1 FS bar tapers 1:10 through the clamp
+zone. Measure the diameter at three points along the run — a single reading cannot tell a tapered bar
+from a parallel one.
 
 ```openscad
 bar_d0    = 32.0;   // Ø where the clamp's inboard face sits
@@ -98,8 +104,36 @@ bar_run   = 20;     // usable straight length before the bar curves
 arm_len   = 45;     // pivot above the bar centreline
 ```
 
-Everything else is derived. Change a parameter and the model's `assert()` guards will stop the render
-and name the constraint you broke, rather than quietly producing a part that does not work.
+Everything else is derived. See [docs/bike-fitment.md](docs/bike-fitment.md).
+
+---
+
+## Printing
+
+ASA, 0.2 mm layers (0.16 mm for the cowl), 4 walls minimum, 40–50 % infill on the yoke and arms. The
+cowl is designed around a 2.4 mm wall — six perimeters at 0.4 mm.
+
+**Print order:** `insert_coupon` → `gauge` → `brow_test` → `yoke` → `arm` + `cap` (×2 each) → `cowl`.
+
+Per-part orientation, measured overhang figures and settings: [docs/printing.md](docs/printing.md).
+
+<p align="center">
+  <img src="renders/gen4-plate.png" width="43%" alt="The four printable parts -- yoke, arm, cap and cowl -- laid flat on one print plate in their print orientation">
+  <img src="renders/gen4-assembly-rider.png" width="43%" alt="The assembly seen from the saddle: the screen fills the frame with the sun visor across the top and both clamps visible flanking the centre bracket">
+</p>
+
+---
+
+## Assembly
+
+1. Press the eight heat-set inserts.
+2. Bolt the yoke to the display — three M5 × 12, run down by hand first, then threadlocker.
+3. Fit a clamp to each side of the centre bracket, butting its faces.
+4. Mesh each spline at the angle you want and run the M6 through with its washer and nyloc.
+5. Hook the cowl's top lip over the display's top edge, rotate it down, and drive one M5 × 12 into
+   each side.
+
+Full sequence, tilt adjustment and the 5 mm-thread warning: [docs/assembly.md](docs/assembly.md).
 
 ---
 
@@ -107,12 +141,12 @@ and name the constraint you broke, rather than quietly producing a part that doe
 
 | | |
 |---|---|
-| **[docs/display-geometry.md](docs/display-geometry.md)** | Every measurement of the display's back, and the three things that catch people out. **Read this if you are designing your own bracket rather than printing ours** |
-| **[docs/design-notes.md](docs/design-notes.md)** | The design constraints, and what each one protects |
-| **[docs/bike-fitment.md](docs/bike-fitment.md)** | What the clamp needs from your handlebar, where the screen ends up, and how to adapt it to a different bar |
-| **[docs/spline-verification.md](docs/spline-verification.md)** | How the tilt joint's teeth were proven to mesh — and why the obvious ways of checking give wrong answers |
-| **[docs/printing.md](docs/printing.md)** | Material, per-part orientation, settings, print order |
-| **[docs/assembly.md](docs/assembly.md)** | Hardware list, order of assembly, the 5 mm thread warning, setting the tilt |
+| **[docs/display-geometry.md](docs/display-geometry.md)** | Every measurement of the display's back, and the three things that catch people out |
+| **[docs/design-notes.md](docs/design-notes.md)** | The design constraints and what each one protects |
+| **[docs/bike-fitment.md](docs/bike-fitment.md)** | What the clamp needs from your handlebar, and how to adapt it to a different bar |
+| **[docs/spline-verification.md](docs/spline-verification.md)** | How the tilt joint's teeth were proven to mesh, and why the obvious checks give wrong answers |
+| **[docs/printing.md](docs/printing.md)** | Material, per-part orientation, measured overhang, settings, print order |
+| **[docs/assembly.md](docs/assembly.md)** | Hardware, order of assembly, setting the tilt |
 
 ## Layout
 
@@ -120,58 +154,51 @@ and name the constraint you broke, rather than quietly producing a part that doe
 src/      gen4-display-mount.scad   — the whole model; every part, one file
 stl/      pre-built exports
 renders/  drawings and preview images
-docs/     the four documents above
-tools/    build.sh (export + verify single parts) · render-gen4.sh (STL + PNG
-          for every part, the print plate and the assembly) · check_stl.py
+docs/     the six documents above
+tools/    build.sh          export every part and run every gate
+          render-gen4.sh    every STL and every PNG
+          check_stl.py      bounding box
+          check_fit.py      clearance, on a second boolean engine
+          check_throat.py   smallest load-bearing section, angle-swept
+          check_fixing.py   does a screw cross one part and land in the other
+          check_shade.py    what the sun visor actually shades
 ```
 
 ## Building from source
 
-Needs [OpenSCAD](https://openscad.org/) (developed against 2021.01) and Python 3.
+Needs [OpenSCAD](https://openscad.org/) (2021.01) and Python 3 with
+`trimesh manifold3d numpy scipy networkx rtree`.
 
 ```bash
-./tools/build.sh
-```
-
-Exports every part and checks each bounding box. Individual parts:
-
-```bash
+./tools/build.sh          # export every part, run every gate
+./tools/render-gen4.sh    # the above, plus every PNG
 openscad -o out.stl -D 'part="yoke"' src/gen4-display-mount.scad
 ```
 
-Valid names: `gauge`, `spline_test`, `pivot_puck_test`, `yoke_leg_test`, `yoke_plate_test`, `yoke`,
-`arm`, `cap`, `cowl`, `brow_test`, `plate` (the 4 printable parts laid out on one plate — print `arm`
-and `cap` twice each, one clamp per side) and `assembly` (every part positioned as it actually
-assembles — both clamps — plus stand-ins for the display, the handlebar and the bracket it clamps
-to — not fabricated, PNG only). An unrecognised name fails loudly on purpose.
+Part names: `gauge`, `insert_coupon`, `spline_test`, `pivot_puck_test`, `yoke_leg_test`,
+`yoke_plate_test`, `yoke`, `arm`, `cap`, `cowl`, `brow_test`, `plate`, `assembly`, `exploded`. An
+unrecognised name fails loudly.
 
-```bash
-./tools/render-gen4.sh
-```
-
-Rebuilds every single-part STL, the plate STL, and every PNG (single parts, the plate, and the
-assembly's iso/side/front views) in one command.
+The build is gated on mesh integrity, fill against hand-computed expectations, minimum load-bearing
+section over swept cutting planes, clearance between every part pair on a second boolean engine, that
+the tilt joint pitches rather than rolls, that each screw crosses one part and lands in material in
+the next, and what the sun visor measurably shades. Each gate has been run against geometry known to
+be broken and confirmed to fail on it.
 
 ---
 
-## A note on the design's stubbornness
-
-Three things in this model are guarded by assertions and should not be "simplified":
+## Three things guarded by assertions
 
 1. **The cable-boot slot opens upward.** A downward slot cuts off the lone M5.
-2. **The pivot sits below the housing.** Anywhere higher and the toothed face covers that bolt's head,
-   so it can never be fitted.
-3. **Bolt length minus part thickness must land in 3–4 mm.** The thread is 5 mm deep.
-
-[docs/design-notes.md](docs/design-notes.md) explains all three.
+2. **The pivot sits below the housing.** Anywhere higher and the toothed face covers that bolt's head.
+3. **Bolt length minus part thickness lands in 3–4 mm.** The display's thread is 5 mm deep.
 
 ---
 
 ## Contributing
 
-Issues and pull requests welcome — especially **measurements from other units**, which would upgrade
-the drawing-derived figures to confirmed ones, and **photos of it fitted**. See
-[CONTRIBUTING.md](CONTRIBUTING.md).
+Issues and pull requests welcome — especially measurements from other units and photos of it fitted.
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licence
 

@@ -130,6 +130,15 @@ openscad_png renders/gen4-assembly-threequarter.png -D 'part="assembly"' \
   --camera=0,0,0,-25,145,0,300
 
 echo
+echo "=== exploded view ==="
+# Side-on enough that the Z explode (display -> yoke -> cowl) reads as
+# separation rather than foreshortening, and turned far enough that neither
+# clamp hides behind the cowl. Checked by rendering the alternatives, not
+# assumed.
+openscad_png renders/gen4-exploded.png -D 'part="exploded"' \
+  --camera=0,0,0,-25,60,0,300
+
+echo
 echo "=== visor: plan + profile (the two views its shape is judged in) ==="
 # Plan (looking straight down): the superelliptical leading edge, which is
 # the silhouette seen from in front of the bike. Renders the whole cowl,

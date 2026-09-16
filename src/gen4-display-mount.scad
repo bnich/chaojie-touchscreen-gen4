@@ -224,6 +224,16 @@ pivot_y = -70;      // ⚠ CLEAR THE DISPLAY: the minimum that satisfies the
 pivot_clear = 2;    // margin held past the display's own bottom edge and
                     // (independently) past the lone M5's head — same
                     // magnitude as the old DM-6's own "+2".
+pivot_head_d    = 11.5;  // counterbored seat for the M6 socket head (Ø10)
+                         // in the ARM's tip puck — see arm()'s own comment on
+                         // why the raw face cannot be used.
+pivot_head_clear = 6;    // how far the same bore reaches OUTWARD past the
+                         // puck's face, clearing the rib off the head's own
+                         // insertion path. Costs nothing structurally — it
+                         // only removes material that was in the way.
+pivot_head_sink = 2.5;   // how far that seat is sunk. Must clear the rib's
+                         // own 1.1mm intrusion with real margin, and comes
+                         // straight off the bolt's grip length.
 pivot_bolt_clear_d = 6.4;       // M6 clearance through both spline halves —
                                 // named here (not just typed inline at the
                                 // yoke's own bore) so Task 4's arm drills the
@@ -1462,9 +1472,33 @@ yoke_top_y = p(holes[0])[1] + yoke_pad_d/2;
 // itself (its own eps overshoot), so this bore doesn't need to reach that
 // far either.
 // Bore LENGTH along X now (the bore runs along the pivot's own axis, ⚠ DM-6
-// re-derived) — just enough to clear the puck plus a little of the spline's
-// own base; the teeth get their own through-bore inside face_spline() itself.
-yoke_pivot_bore_len = yoke_tip_h + base_female + spline_h + 2 * eps;
+// re-derived).
+//
+// ⛔ THIS USED TO START AT pivot_x_r AND THE BOLT COULD NOT BE FITTED.
+// Owner: "When I looked at the yoke, there was no hole to feed a bolt
+// through." Correct. The bore ran from the puck's own root face (x =
+// pivot_x_r = 17.9) OUTWARD, on the reasoning that the puck's root is "the
+// near face as the bolt is offered up from that side" — but the bolt is
+// offered from the ARM, i.e. from OUTBOARD, and has to come out the far
+// side for its nyloc. The leg's own Stage C material continues INBOARD of
+// the puck, and measured on the exported part it left a solid plug from
+// x = 13.75 to 17.75 sitting squarely on the bolt's axis: **4.25 mm of ASA
+// between the bolt's tip and daylight.** The joint could not be assembled.
+//   Nothing caught it. `assert(pivot_bolt_clear_d < spline_id)` checks that
+// the bore is not too WIDE; no check asked whether it went all the way
+// THROUGH. That is the same blind spot the cowl's own fixing had, and
+// tools/check_fixing.py now covers this joint too.
+//   So the bore starts at the leg's own inboard face and runs the whole way
+// out. Boring through the air inboard of the leg costs nothing.
+//   ⚠ THE START X IS COMPUTED INSIDE yoke_leg_bore(), NOT HERE. `pivot_x_r`
+// is defined much further down this file (it needs arm_pivot_y, which needs
+// the clamp geometry), and a top-level assignment reading it from up here
+// silently evaluates to `undef` — no warning. The first attempt at this fix
+// did exactly that: the bore landed at x=0, drilled through the middle of
+// the bearing plate, and CGAL reported `Volumes: 4` — a part in three
+// pieces. Module BODIES are resolved at instantiation, so the same
+// expression is fine inside the module and wrong out here.
+yoke_pivot_bore_len = leg_w/2 + yoke_tip_h + base_female + spline_h + 3 * eps;
 
 assert(pivot_bolt_clear_d < spline_id,
   str("PIVOT BORE TOO WIDE: exceeds the spline's own bore id — would break ",
@@ -1598,15 +1632,39 @@ module yoke_leg() {
 
 // The right leg's own pivot-bolt clearance cuts — mirrored by yoke() below
 // for the left, same reasoning as yoke_leg() itself.
+// ⭐ THE NUT NEEDS A FLAT (2026-09-15). Boring through the leg (above) made
+// the bolt fittable, but the face its nyloc lands on is the Stage C hull's
+// own flank, and that flank is NOT square to the bolt: measured on the
+// exported part it wanders from x=12.45 to x=15.05 across the nut's own
+// Ø10 footprint, and from 11.60 to 15.95 across a Ø20. A nut tightened onto
+// a 2.6mm slope cocks, bears on one edge, and relaxes as the plastic
+// creeps — on the joint that holds the screen's angle.
+//   So the leg gets a boss with a real flat, standing out to the leg's own
+// NOMINAL inboard plane (pivot_x_r - leg_w/2). That plane is chosen rather
+// than a measured number on purpose: the leg is never wider than leg_w by
+// construction, so this face is guaranteed proud of whatever the taper
+// actually does, and stays guaranteed if the taper is ever re-shaped.
+yoke_nut_pad_d = 16;   // Ø16 over an M6 nyloc's own 10mm across-flats, so a
+                       // socket reaches it and a washer has somewhere to sit.
+module yoke_nut_pad() {
+  translate([pivot_x_r - leg_w/2, pivot_y, pivot_z])
+    rotate([0, 90, 0])
+      cylinder(d = yoke_nut_pad_d, h = leg_w/2 + yoke_tip_h/2);
+}
+
 module yoke_leg_bore() {
-  translate([pivot_x_r - eps, pivot_y, pivot_z])
+  translate([pivot_x_r - leg_w/2 - eps, pivot_y, pivot_z])
     rotate([0, 90, 0])
       cylinder(d = pivot_bolt_clear_d, h = yoke_pivot_bore_len);
-  // Lead-in where the bore first breaks through real material (the puck's
-  // own root face, the end AWAY from the spline — the near face as the bolt
-  // is offered up from that side).
+  // Lead-in at the puck's own root face — the bolt's tip passes this on its
+  // way out toward the nut, so the chamfer faces the way the tip travels.
   translate([pivot_x_r, pivot_y, pivot_z])
     rotate([0, 90, 0])
+      cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+  // ⭐ Lead-in at the leg's own INBOARD face too — this is the face the nut
+  // seats against, and it is the end that did not exist at all before.
+  translate([pivot_x_r - leg_w/2 + 0.5, pivot_y, pivot_z])
+    rotate([0, -90, 0])
       cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
 }
 
@@ -1630,6 +1688,10 @@ module yoke() {
       //    just convenient.
       yoke_leg();
       mirror([1, 0, 0]) yoke_leg();
+
+      // Flat seats for the two pivot nuts — see yoke_nut_pad()'s own comment.
+      yoke_nut_pad();
+      mirror([1, 0, 0]) yoke_nut_pad();
 
       // 3. ⭐ The two ears the COWL screws into (2026-09-15). The cowl had
       //    no working fixing at all before this — see cowl_fix_pad()'s own
@@ -2072,11 +2134,34 @@ module arm() {
     translate([0, arm_pivot_y + arm_tip_h + eps, arm_len])
       rotate([90, 0, 0])
         cylinder(d = pivot_bolt_clear_d, h = arm_tip_h + base_male + spline_h + 2 * eps);
-    // Lead-in at the bore's entry face (the puck's own root, away from the
-    // spline — the bolt is offered up from that side).
-    translate([0, arm_pivot_y + arm_tip_h, arm_len])
+    // ⭐ HEAD SEAT (2026-09-15). The puck's own root face is NOT flat where
+    // the head lands: the rising rib joins the puck on the -Y side and
+    // stands 1.1mm proud of it, right inside the Ø10 footprint of an M6
+    // socket head (measured on the positioned export at r = 4, 5, 6 and 8 —
+    // all four read 38.55 on that side against 37.45 on the other three).
+    // A head tightened onto that rocks on one edge, which on THIS joint
+    // means the tilt angle creeps. A counterbore sinks the seat clear of the
+    // rib, squares it to the bolt, and takes pivot_head_sink off the stack.
+    // ⚠ THIS BORE RUNS OUTWARD PAST THE PUCK'S FACE AS WELL AS INTO IT.
+    // Sinking a seat is not enough on its own: the rib does not merely make
+    // the face uneven, it stands PROUD of it, so it also sits across the
+    // head's own insertion path. A counterbore that starts at the face
+    // leaves that untouched — measured, after doing exactly that: the seat
+    // came out flat at x=34.90 while the rib still read 38.55 at r=4, i.e.
+    // in front of a Ø10 head trying to get in. So the cut begins
+    // pivot_head_clear OUTSIDE the face and sweeps back through it.
+    translate([0, arm_pivot_y + arm_tip_h + pivot_head_clear, arm_len])
       rotate([90, 0, 0])
-        cylinder(d1 = pivot_bolt_clear_d + 1, d2 = pivot_bolt_clear_d, h = 0.5);
+        cylinder(d = pivot_head_d, h = pivot_head_sink + pivot_head_clear);
+    // Small chamfer where the seat meets the clearance bore.
+    // ⚠ SMALL, AND ONLY AT THE SHANK. A first version ran this cone from the
+    // seat's own full Ø11.5 down to the bore — which is not a lead-in, it is
+    // a 0.6mm taper across the entire bearing face, and the head then sat on
+    // a cone. The build's own pivot gate measured it: 0.35mm of slope across
+    // the head's annulus, where the nut's face read 0.00.
+    translate([0, arm_pivot_y + arm_tip_h - pivot_head_sink + eps, arm_len])
+      rotate([90, 0, 0])
+        cylinder(d1 = pivot_bolt_clear_d + 0.8, d2 = pivot_bolt_clear_d, h = 0.4);
   }
 }
 
@@ -3327,6 +3412,135 @@ module insert_coupon() {
 }
 
 
+/* ---- ⭐ THE PIVOT BOLT'S LENGTH, DERIVED (2026-09-15) -------------------
+   ⛔ THE BOLT COULD NOT BE FITTED AT ALL BEFORE THIS. Owner: "When I looked
+   at the yoke, there was no hole to feed a bolt through." Three separate
+   things were wrong, and only the first was obvious:
+     1. The yoke's bore started at the puck's own root face and ran OUTWARD,
+        leaving the leg's Stage C material — measured, a solid plug from
+        x=13.75 to 17.75 — squarely on the axis. 4.25mm of ASA between the
+        bolt's tip and daylight.
+     2. Once bored through, the face the nyloc lands on was the leg's own
+        taper flank, wandering 2.6mm across the nut's Ø10 footprint. A nut
+        pulled onto a slope cocks and then relaxes as the plastic creeps —
+        on the one joint that holds the screen's angle.
+     3. At the other end, the rising rib stands 1.1mm PROUD of the puck's
+        face, inside the head's Ø10 footprint and across its insertion path.
+        A sunk seat alone did not fix that — the first attempt left the seat
+        flat at x=34.90 with the rib still at 38.55, in front of it.
+   All three were invisible to every check in this file, which asked whether
+   the bore was too WIDE (`pivot_bolt_clear_d < spline_id`) and never whether
+   it went all the way THROUGH, or landed on anything square.
+
+   THE STACK, from the nut's own seat outward. Every term is a real feature,
+   so this cannot drift from the geometry the way a hand-carried number can:
+     leg_w/2       the flat nut pad, out at the leg's nominal inboard plane
+     yoke_tip_h    the yoke's pivot puck
+     spline_seat   both spline pedestals plus the meshed tooth height
+     arm_tip_h     the arm's tip puck
+     -pivot_head_sink   less the counterbored head seat                    */
+pivot_grip     = leg_w/2 + yoke_tip_h + spline_seat + arm_tip_h - pivot_head_sink;
+pivot_washer_t = 1.6;   // plain M6 washer. ⚠ USE ONE — the nut turns against
+                        // printed ASA, and its corners dig in without one.
+pivot_nut_h    = 6.0;   // M6 nyloc, DIN 985
+pivot_bolt_len = 35;    // M6 x 35
+
+assert(pivot_bolt_len >= pivot_grip + pivot_washer_t + 5,
+  str("PIVOT BOLT TOO SHORT: the stack is ", pivot_grip, "mm of grip plus a ",
+      pivot_washer_t, "mm washer, so an M6x", pivot_bolt_len, " reaches only ",
+      pivot_bolt_len - pivot_grip - pivot_washer_t, "mm into the nut. A nyloc ",
+      "needs about 5mm to reach its own nylon collar — less than that and it ",
+      "is a plain nut that happens to be stiff."));
+assert(pivot_bolt_len <= pivot_grip + pivot_washer_t + pivot_nut_h + 8,
+  str("PIVOT BOLT ABSURDLY LONG: an M6x", pivot_bolt_len, " leaves ",
+      pivot_bolt_len - pivot_grip - pivot_washer_t - pivot_nut_h,
+      "mm of thread hanging past the nut, on a joint that sits beside the ",
+      "rider's own knee."));
+echo(str("PIVOT: grip ", pivot_grip, "mm + washer ", pivot_washer_t,
+         "mm -> M6 x ", pivot_bolt_len, ", ",
+         pivot_bolt_len - pivot_grip - pivot_washer_t, "mm into the nut"));
+
+
+/* ---- PART: exploded -----------------------------------------------------
+   The assembly pulled apart along the axes it actually goes together on, with
+   every fastener shown in its own position. Not a fabricated part -- stand-ins
+   and colour only, like assembly().
+
+   Axes, taken from clamp_seat()'s own mapping rather than guessed: the arm's
+   local Y is the bar, and it lands on world X; its local Z (the split plane's
+   own normal) lands on world Y. So a clamp cap separates DOWNWARD in world Y,
+   and an arm separates OUTWARD along world X -- which is also the spline's own
+   axis, so one move pulls the clamp off both the bar and the pivot.          */
+xpl = 30;   // explode distance, one unit.
+            // ⚠ The cowl's own multiplier is large and not decorative: its
+            // visor reaches z=-59 and the yoke's spline pucks reach z=+40,
+            // so anything under about 120mm of lift leaves the two visually
+            // interleaved and the diagram unreadable.
+
+module hex_head(d, h) { cylinder(d = d, h = h, $fn = 6); }
+
+// A socket-cap stand-in: head then shank, growing in +Z from the origin.
+module bolt_stub(d, len, head_d = 0) {
+  hd = head_d > 0 ? head_d : d * 1.7;
+  color("Gainsboro") {
+    translate([0, 0, -hd * 0.62]) cylinder(d = hd, h = hd * 0.62);
+    cylinder(d = d, h = len);
+  }
+}
+module nut_stub(d)    { color("Gainsboro") hex_head(d * 1.8, d * 0.8); }
+module insert_stub(d, h) { color("Goldenrod") cylinder(d = d, h = h); }
+
+module exploded() {
+  color("DimGray") display_stub();
+
+  // Yoke, off the display's back face, and its three M5 x 12.
+  translate([0, 0, xpl * 0.4]) {
+    color("Gold") yoke();
+    for (h = holes)
+      translate([p(h)[0], p(h)[1], yoke_t + xpl * 0.7])
+        bolt_stub(5, m5_len, m5_head_d);
+    // the two inserts the cowl screws into, pulled out sideways
+    for (sx = [-1, 1])
+      translate([sx * (cowl_fix_ear_x1 + xpl * 0.5), cowl_fix_y, cowl_fix_z])
+        rotate([0, sx * 90, 0]) insert_stub(insert_m5_od, insert_m5_len);
+  }
+
+  // Cowl, straight off the back, and its two M5 x 12 going in sideways.
+  translate([0, 0, xpl * 4.3]) {
+    color("Crimson") cowl();
+    for (sx = [-1, 1])
+      translate([sx * (disp_w/2 + reveal + xpl * 0.45), cowl_fix_y, cowl_fix_z])
+        rotate([0, -sx * 90, 0]) bolt_stub(5, cowl_fix_screw_len, m5_head_d);
+  }
+
+  // One clamp per side: arm outward along the spline's own axis, cap down.
+  for (side = [1, -1]) {
+    translate([side * xpl * 1.5, 0, 0]) {
+      clamp_seat(side) color("RoyalBlue") arm();
+      translate([0, -xpl * 1.1, 0]) clamp_seat(side) color("SeaGreen") cap();
+      // the two M5 x 16 clamp bolts, below their cap, and the inserts above
+      clamp_seat(side)
+        for (sx = [-1, 1]) {
+          translate([sx * ear_x, clamp_x0 + clamp_w/2, -ear_h - xpl * 1.7])
+            bolt_stub(5, ear_bolt_len, m5_head_d);
+          translate([sx * ear_x, clamp_x0 + clamp_w/2, ear_h + xpl * 0.35])
+            insert_stub(insert_m5_od, insert_m5_len);
+        }
+    }
+    // the pivot M6 and its nyloc, on the spline's own axis
+    translate([side * (pivot_x_r + yoke_tip_h + spline_seat + arm_tip_h
+                       + xpl * 1.9), pivot_y, pivot_z + xpl])
+      rotate([0, -side * 90, 0]) bolt_stub(6, pivot_bolt_len, 10);
+    translate([side * (pivot_x_r - leg_w/2 - xpl * 0.9), pivot_y, pivot_z + xpl])
+      rotate([0, side * 90, 0]) nut_stub(6);
+  }
+
+  color("Silver")      clamp_seat(1)  bar_stub();
+  color("Silver")      clamp_seat(-1) bar_stub();
+  color("SaddleBrown") clamp_seat(1)  bracket_stub();
+}
+
+
 if (part == "gauge") gauge();
 else if (part == "spline_test") spline_test();
 else if (part == "pivot_puck_test") pivot_puck_test();
@@ -3339,6 +3553,7 @@ else if (part == "cowl") cowl();
 else if (part == "brow_test") brow_test();
 else if (part == "insert_coupon") insert_coupon();
 else if (part == "assembly") assembly();
+else if (part == "exploded") exploded();
 else if (part == "plate") plate();
 else if (part == "pitch_probe_fixed") pitch_probe_fixed();
 else if (part == "pitch_probe_arm") pitch_probe_arm();

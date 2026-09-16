@@ -671,6 +671,74 @@ print("    OK — elevation tracks theta 1:1, roll and the hinge axis itself sta
 PYEOF
 rm -f stl/_pitch_fixed.stl stl/_pitch_arm_*.stl
 
+# ⭐ PIVOT BOLT GATE, added 2026-09-15 -- "there was no hole to feed a bolt
+# through", and there was not. The yoke's bore started at the puck's own root
+# face and ran outward, leaving a solid plug of leg (measured: x=13.75..17.75)
+# on the axis. The only assertion on this bore asked whether it was too WIDE.
+# Nothing asked whether it went THROUGH, whether the nut landed on anything
+# square, or whether the head could even be inserted past the rising rib.
+#   This walks the real pivot axis through the real exported parts, in the
+# assembled frame, and checks all three.
+echo "--- pivot bolt: can it actually be fitted, and is M6x35 right? ---"
+PIVWORK="$(mktemp -d "${TMPDIR:-/tmp}/gen4-pivot.XXXXXX")"
+cat > "$PIVWORK/pos_arm_r.scad" <<ARMEOF
+use <$(pwd)/$SRC>
+clamp_seat(1) arm();
+ARMEOF
+openscad -o "$PIVWORK/pos_arm_r.stl" "$PIVWORK/pos_arm_r.scad" >/dev/null 2>&1
+"$PY" - "$PIVWORK/pos_arm_r.stl" <<'PIVPY'
+import sys, trimesh, numpy as np, math
+arm  = trimesh.load(sys.argv[1], process=True)
+yoke = trimesh.load("stl/gen4-yoke.stl", process=True)
+AX_Y, AX_Z = -70.0, 20.0
+xs = np.arange(0.0, 70.0, 0.05)
+
+def on_axis(m):
+    return m.contains(np.array([[x, AX_Y, AX_Z] for x in xs])).sum()
+blocked = on_axis(yoke) + on_axis(arm)
+print(f"    bolt axis: {blocked} solid samples of {2*len(xs)} "
+      f"({'CLEAR THROUGH' if blocked == 0 else 'BLOCKED'})")
+if blocked:
+    print("    FAIL: something sits on the bolt's own axis. It cannot be fitted.")
+    sys.exit(1)
+
+def face(m, outermost):
+    k = m.contains(np.array([[x, AX_Y, AX_Z + 5.0] for x in xs]))
+    if not k.any(): return None
+    return xs[len(xs)-1-np.argmax(k[::-1])] if outermost else xs[np.argmax(k)]
+nut, head = face(yoke, False), face(arm, True)
+grip = head - nut
+print(f"    nut seat x={nut:.2f}  head seat x={head:.2f}  grip {grip:.2f} mm")
+EXPECT = 26.1
+if abs(grip - EXPECT) > 0.6:
+    print(f"    FAIL: measured grip {grip:.2f} disagrees with the model's own "
+          f"derived pivot_grip ({EXPECT}). One of them is wrong.")
+    sys.exit(1)
+
+# A fastener bears on an ANNULUS -- from its own clearance hole out to its
+# head/flats. Probing inside that (r < 4.0 here) samples the bore's lead-in
+# chamfer, which is not a bearing surface and is 0.25mm deeper by design.
+for m, name, r_max, outer in ((yoke, "nut", 6.0, False), (arm, "head", 5.0, True)):
+    vals = []
+    for r in (4.0, (4.0 + r_max)/2, r_max):
+        for a in (0, 90, 180, 270):
+            py = AX_Y + r*math.cos(math.radians(a))
+            pz = AX_Z + r*math.sin(math.radians(a))
+            k = m.contains(np.array([[x, py, pz] for x in xs]))
+            if k.any():
+                vals.append(xs[len(xs)-1-np.argmax(k[::-1])] if outer else xs[np.argmax(k)])
+    spread = max(vals) - min(vals)
+    print(f"    {name} face flat to {spread:.2f} mm across its own footprint")
+    if spread > 0.3:
+        print(f"    FAIL: {name} bears on a {spread:.2f}mm slope. It will cock, "
+              f"bear on one edge, and relax as the ASA creeps.")
+        sys.exit(1)
+print("    OK - clear through, faces flat, M6x35 with a washer.")
+PIVPY
+rc=$?
+rm -rf "$PIVWORK"
+[ $rc -eq 0 ] || exit 1
+
 # ⭐ COWL FIXING GATE, added 2026-09-15 -- the check that should have caught
 # a cowl with no attachment at all. Owner: "how does the cowl attach? it has
 # no bolts?" It did not. The old M3 bosses were unioned into the shell and

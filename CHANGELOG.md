@@ -51,12 +51,55 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
 ### Added
+- **Exploded view** (`part="exploded"`, `renders/gen4-exploded.png`) — every part pulled apart along
+  the axis it actually assembles on, with all 17 fasteners and 8 inserts shown in place.
+- **`insert_coupon`** — heat-set insert fit gauge: eight pockets, two fits each for M3/M4/M5/M6.
+- **`tools/check_fixing.py`** — walks a screw's axis through two exported meshes and reports what is
+  actually there.
+- **`tools/check_throat.py`** — smallest verified load-bearing section, sweeping the cutting plane's
+  angle instead of picking one.
 - **Four new renders** (`tools/render-gen4.sh`): `gen4-assembly-rider.png` (the view from the
   saddle), `gen4-assembly-threequarter.png`, and `gen4-visor-plan.png` / `gen4-visor-profile.png` —
   the two views the visor's shape is actually judged in (its plan silhouette, and how far it reaches
   past the glass).
 
 ### Fixed
+- **The pivot bolt could not be fitted (found by eye, 2026-09-15).** Owner: *"When I looked at the
+  yoke, there was no hole to feed a bolt through."* Correct, and three separate things were wrong:
+  **(1) The bore did not go through.** `yoke_leg_bore()` started at the puck's own root face and ran
+  OUTWARD, on the reasoning that the puck's root is the near face "as the bolt is offered up from
+  that side" — but the bolt is offered from the ARM, i.e. outboard, and has to exit the far side for
+  its nyloc. The leg's Stage C material continues inboard of the puck and left a solid plug measured
+  at x = 13.75–17.75: **4.25 mm of ASA between the bolt's tip and daylight.**
+  **(2) The nut had nothing square to sit on.** Once bored through, the face the nyloc lands on was
+  the leg's own taper flank, wandering **2.6 mm across the nut's Ø10 footprint** (11.60–15.95 across
+  Ø20). A nut pulled onto a slope cocks, bears on one edge and relaxes as the ASA creeps — on the
+  joint that holds the screen's angle.
+  **(3) The head could not be inserted.** The rising rib joins the arm's tip puck 1.1 mm PROUD of its
+  face, inside a Ø10 head's footprint and across its insertion path. Sinking a counterbored seat did
+  not fix that on its own — the first attempt left the seat flat at x = 34.90 with the rib still at
+  38.55, in front of it; the bore now runs `pivot_head_clear` outward past the face as well as into
+  it. A second iteration was needed there too: the lead-in cone ran from the seat's full Ø11.5 down
+  to the bore, which is not a lead-in but a 0.6 mm taper across the whole bearing face, and the gate
+  measured 0.35 mm of slope where the nut read 0.00.
+  ⛔ **The only assertion on this bore checked that it was not too WIDE** (`pivot_bolt_clear_d <
+  spline_id`). Nothing asked whether it went through, landed on anything square, or admitted a head.
+  **Fixed:** the bore starts at the leg's own inboard face; a `yoke_nut_pad()` boss gives the nut a
+  flat out at the leg's nominal plane (chosen over a measured number so it stays proud if the taper
+  is ever re-shaped); the arm gets a counterbored head seat that also clears the rib. Both faces now
+  measure **flat to 0.00 mm** across their own bearing annulus.
+  ⭐ The bolt's length is now **derived from the stack rather than carried by hand** — `pivot_grip =
+  leg_w/2 + yoke_tip_h + spline_seat + arm_tip_h − pivot_head_sink` = 26.1 mm → **M6 × 35** with a
+  1.6 mm washer, 7.3 mm into the nut, asserted against both a too-short and an absurdly-long bound.
+  ⭐ **New pivot gate** in `tools/build.sh`: walks the real axis through the real exported parts in
+  the assembled frame and checks all three failures at once — clear through, grip matching the
+  model's own derived figure within 0.6 mm, and both bearing faces flat to 0.3 mm over the annulus
+  the fastener actually touches (not inside it, where the bore's own chamfer lives).
+  ⚠️ One more trap recorded in passing: `yoke_pivot_bore_x0` was first written as a top-level
+  assignment reading `pivot_x_r`, which is defined much further down the file. It silently evaluated
+  to `undef`, put the bore at x = 0, drilled through the middle of the bearing plate, and CGAL
+  reported `Volumes: 4` — the part in three pieces. Module *bodies* resolve at instantiation;
+  top-level assignments do not.
 - **The yoke's legs hung off the bearing plate by a 36 mm² shear web (found by eye, 2026-09-15).**
   Owner, looking at the side view: *"there is only a thin bit of plastic connecting where the back of
   the part mounts to the display to the rest of the yoke, this should be thicker."* Correct.
