@@ -671,6 +671,40 @@ print("    OK — elevation tracks theta 1:1, roll and the hinge axis itself sta
 PYEOF
 rm -f stl/_pitch_fixed.stl stl/_pitch_arm_*.stl
 
+# ⭐ COWL EAR BOND GATE, added 2026-09-15 -- "the new ears are barely
+# connected." They were: the yoke's bearing plate is a truss whose outer edge
+# runs diagonally, so how far it reaches in X depends strongly on Y -- x=51.5
+# at y=+6, but only 46.0 at y=-4 and 39.0 at y=-12. An ear rooted at y=-4 and
+# starting at x=51 began 5mm OUTBOARD OF THE PLATE and met it at a corner.
+# Measured: the ear shared **2.3 mm^3** with the plate, out of its own 6670.
+#   ⛔ NO SECTION SCAN CAN CATCH THIS, at any angle. check_throat.py's own
+# hemisphere sweep reported a healthy 112 mm^2 on the broken geometry, because
+# the plane that comes closest to separating the ear also slices a large area
+# of PLATE carrying none of the ear's load. A section measures a neck; it
+# cannot measure whether two solids are really one.
+#   So this measures the SHARED VOLUME directly: export the ear alone and the
+# plate alone, intersect them, and require a real bond.
+echo "--- cowl ear bond: is the ear actually part of the plate? ---"
+openscad -o stl/gen4-yoke-ear-test.stl -D 'part="yoke_ear_test"' "$SRC" >/dev/null 2>&1
+"$PY" - <<'BONDPY'
+import sys, trimesh
+ear   = trimesh.load("stl/gen4-yoke-ear-test.stl", process=True)
+plate = trimesh.load("stl/gen4-yoke-plate-test.stl", process=True)
+inter = trimesh.boolean.intersection([ear, plate], engine="manifold")
+shared = inter.volume if inter is not None and len(inter.faces) else 0.0
+frac = shared / ear.volume if ear.volume else 0.0
+print(f"    ear {ear.volume:8.1f} mm^3, of which {shared:8.1f} mm^3 "
+      f"({frac*100:.1f}%) is inside the bearing plate")
+FLOOR = 1500.0     # shipped geometry measures 2607.8; the broken one, 2.3
+if shared < FLOOR:
+    print(f"    FAIL: {shared:.1f} mm^3 of bond is under the {FLOOR:.0f} mm^3 "
+          f"floor. The ear is sitting against the plate's edge, not merged "
+          f"into it -- it will snap off at the root.")
+    sys.exit(1)
+print(f"    OK - floor {FLOOR:.0f} mm^3.")
+BONDPY
+[ $? -eq 0 ] || exit 1
+
 # ⭐ PIVOT BOLT GATE, added 2026-09-15 -- "there was no hole to feed a bolt
 # through", and there was not. The yoke's bore started at the puck's own root
 # face and ran outward, leaving a solid plug of leg (measured: x=13.75..17.75)
@@ -751,11 +785,17 @@ rm -rf "$PIVWORK"
 # what is actually there. Proven to fire: run against the committed pre-fix
 # pair on the old M3 axis it reports "passes through NO material".
 echo "--- cowl fixing: does the screw go through the cowl and into the yoke? ---"
+# ⚠ These coordinates ARE the joint's own axis (cowl_fix_y, cowl_fix_z) and
+#   have to move with it. They did not when the ear moved from y=-4 to y=+6,
+#   and the gate immediately said so -- "34.60 mm gap ... the screw spans air"
+#   -- which is the right failure to get from a stale probe.
+#   --probe-r 4.5 sits outside the Ø6.8 insert pocket and inside the Ø15 pad:
+#   ON the axis is the hole, and at the default 3mm it is still the hole.
 "$PY" tools/check_fixing.py stl/gen4-cowl.stl stl/gen4-yoke.stl \
-  --at=80.5,-4,6.5 --along=-1,0,0 --min-grip 10 --max-gap 0.6 \
+  --at=80.5,6,9 --along=-1,0,0 --probe-r 4.5 --min-grip 10 --max-gap 0.6 \
   --label "right side M5x12" || exit 1
 "$PY" tools/check_fixing.py stl/gen4-cowl.stl stl/gen4-yoke.stl \
-  --at=-80.5,-4,6.5 --along=1,0,0 --min-grip 10 --max-gap 0.6 \
+  --at=-80.5,6,9 --along=1,0,0 --probe-r 4.5 --min-grip 10 --max-gap 0.6 \
   --label "left side M5x12" || exit 1
 
 # ⭐ Does the visor actually shade the screen? See tools/check_shade.py for

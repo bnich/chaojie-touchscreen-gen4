@@ -244,6 +244,29 @@ millimetres. Same projection, same rounded silhouette, 27.7 % instead of 14.8 %.
 squares the curve off — more shade, blockier nose; lowering it toward 2 gives a sleek ellipse and
 less shade. Move it and re-run the shade test.
 
+### ⚠️ The bearing plate is a truss — its reach depends on Y
+
+The plate is not a rectangle. Its outer edge runs diagonally from the bolt-hole wings down toward the
+legs, so how far out in X it reaches depends strongly on where in Y you look:
+
+| Y | plate reaches |
+|---|---|
+| +6 | **x = 51.5** (widest) |
+| −4 | x = 46.0 |
+| −12 | x = 39.0 |
+| −24 | x = 28.2 |
+
+Anything rooted into the plate has to be placed against that, not against its bounding box. The cowl's
+side ears were first placed at y = −4 starting at x = 51 — five millimetres outboard of the plate
+altogether, meeting it at a corner, sharing **2.3 mm³** of volume with it out of 6670. They are now at
+**y = +6**, the widest line, rooted at x = 40 where the plate is solid from y = −10 to +16.
+
+⛔ **A section scan cannot catch that class of defect at any angle**, including the hemisphere sweep
+in `tools/check_throat.py`, which reported 112 mm² on the broken ear. The plane that comes closest to
+separating an ear also slices a large area of plate carrying none of the ear's load. To ask whether a
+feature is *attached*, measure the **shared volume** of the two solids — `tools/build.sh`'s cowl-ear
+bond gate — not a cross-section.
+
 ### The underside is flat on purpose
 
 Every station's profile sits on one shared plane, `brow_y0` (3 mm above the display's top edge).

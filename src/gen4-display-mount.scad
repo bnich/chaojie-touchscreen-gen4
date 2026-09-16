@@ -2723,10 +2723,20 @@ cowl_fix_beyond  = 6;     // bolt-tip clearance drilled PAST the insert, so a
                           // feels tight and holds nothing — the same trap
                           // docs/assembly.md flags on the display's own 5mm
                           // threads.
-cowl_fix_y       = -4;    // where on the side wall, model Y. Mid-plate: the
-                          // yoke's own plate spans y=-24.61..17.09, so an ear
-                          // here roots into the middle of it rather than at
-                          // an end.
+cowl_fix_y       = 6;     // where on the side wall, model Y.
+                          // ⚠️ NOT -4, WHICH LEFT THE EAR BARELY ATTACHED.
+                          // The plate is not a rectangle: it is a truss whose
+                          // outer edge runs diagonally, and its reach in X
+                          // depends strongly on Y. Measured on
+                          // yoke-plate-test.stl: it reaches x=51.5 at y=+6 but
+                          // only x=46.0 at y=-4 and x=39.0 at y=-12. An ear
+                          // rooted at y=-4 and starting at x=51 therefore
+                          // began 5mm OUTBOARD OF THE PLATE ALTOGETHER and
+                          // met it at a corner. Owner, from the top view:
+                          // "the new ears are barely connected."
+                          //   y=+6 is the plate's own widest line, so the ear
+                          // roots where there is the most material to root
+                          // into, and only cantilevers from there.
 cowl_fix_z       = 9;     // model Z. ⚠️ NOT 6.5, which a first version used:
                           // the pad is a Ø cowl_fix_pad_d cylinder CENTRED on
                           // this, so at 6.5 its underside reached z=-1 and bit
@@ -2758,10 +2768,25 @@ cowl_fix_gap     = 0.3;   // assembly clearance, pad's own inner face to the
 cowl_fix_wall_x  = disp_w/2 + reveal;              // outer face of the side wall
 cowl_fix_pad_x   = cowl_fix_wall_x - cowl_wall - cowl_fix_pad_t;   // pad's inner face
 cowl_fix_ear_x1  = cowl_fix_pad_x - cowl_fix_gap;  // ear's own outer face
-cowl_fix_ear_x0  = disp_w/2 - disp_corner_r - 20;  // ear's inboard end, well
-                          // inside the yoke plate's own edge so the ear roots
-                          // into the plate rather than hanging off its corner.
-cowl_fix_ear_w   = 16;    // ear's Y width
+// ⭐ THE EAR IS THREE STATIONS, NOT A BAR (2026-09-15). It has to bridge from
+// the plate's own edge out to the cowl's inner side wall, and nothing can make
+// that stretch anything but a cantilever — the plate stops at x=51.5 and the
+// wall is at x=78.1. What CAN be fixed is the root, and the shape of the run:
+//   root  buried deep in the plate, flush within its own thickness
+//   mid   still flush, but past the upper M5's own socket sweep
+//   boss  out at the wall, risen to the screw's own height
+// The root->mid leg stays at or under yoke_t deliberately: above it lies the
+// Ø9.5 socket sweep of the upper M5 at (40.5, 6.09), and a rib crossing that
+// at any height makes the display bolt impossible to drive.
+cowl_fix_ear_root_x = 40;   // inboard end. Measured: at this X the plate is
+                            // solid from about y=-10 to y=+16, so a ±10 root
+                            // about cowl_fix_y sits wholly inside it.
+cowl_fix_ear_mid_x  = 49;   // where it leaves the plate's back face. Past the
+                            // socket sweep's own outer edge (45.25) with
+                            // margin, and the plate still reaches here.
+cowl_fix_ear_root_w = 20;   // Y width at the root
+cowl_fix_ear_mid_w  = 14;   // Y width where it lifts off
+cowl_fix_ear_w   = 16;    // ear's Y width at the boss
 cowl_fix_ear_z0  = 2.5;   // ear's underside, model Z. NOT 0 — see the ⚠️ above:
                           // this is what guarantees the ear cannot touch the
                           // display's (unmeasured, probably curving) shell out
@@ -2788,12 +2813,20 @@ assert(cowl_fix_ear_z0 < yoke_t,
   str("COWL FIXING EAR DOES NOT REACH THE PLATE: the ear spans z=",
       cowl_fix_ear_z0, "..", cowl_fix_ear_z1, " and the bearing plate is ",
       "z=0..", yoke_t, " — they must overlap or the ear is a separate body."));
-assert(cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond > cowl_fix_ear_x0,
+assert(cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond > cowl_fix_ear_mid_x,
   str("COWL FIXING BORE RUNS OUT OF EAR: the insert pocket (",
       insert_m5_pocket_h, "mm) plus its tip clearance (", cowl_fix_beyond,
       "mm) from x=", cowl_fix_ear_x1, " reaches x=",
       cowl_fix_ear_x1 - insert_m5_pocket_h - cowl_fix_beyond,
-      ", past the ear's own inboard end (", cowl_fix_ear_x0, ")."));
+      ", past where the ear lifts off the plate (", cowl_fix_ear_mid_x, ")."));
+assert(cowl_fix_ear_mid_x > 45.25 + 2,
+  str("COWL FIXING EAR CROSSES THE UPPER M5's SOCKET: it lifts off the plate ",
+      "at x=", cowl_fix_ear_mid_x, ", but that bolt's own Ø", m5_socket_d,
+      " socket sweep reaches x=45.25. A rib above the plate there makes the ",
+      "display bolt impossible to drive."));
+assert(cowl_fix_ear_root_x < cowl_fix_ear_mid_x,
+  str("COWL FIXING EAR STATIONS OUT OF ORDER: root (", cowl_fix_ear_root_x,
+      ") must sit inboard of mid (", cowl_fix_ear_mid_x, ")."));
 assert(cowl_fix_ear_z1 - cowl_fix_ear_z0 - insert_m5_pocket_d > 3,
   str("COWL FIXING INSERT TOO BIG FOR ITS EAR: a Ø", insert_m5_pocket_d,
       " pocket in a ", cowl_fix_ear_z1 - cowl_fix_ear_z0,
@@ -2847,30 +2880,41 @@ module cowl_fix_cut() {
 
 // The yoke's side of the SAME joint — one ear per side, reading the same
 // derived numbers above. Called from yoke().
+// One station of the ear: a thin Y-Z slice at a given X, the transpose of
+// taper_wp()'s own X-Z slice. Same hull()-waypoint discipline, same
+// offset() round-trip (so the same 2*fillet_vis collapse applies to BOTH of
+// its dimensions -- asserted at the call sites through the station widths).
+module fix_ear_wp(x, y_c, w, z0, z1) {
+  translate([x, y_c, (z0 + z1)/2])
+    rotate([0, 90, 0])
+      linear_extrude(2 * eps, center = true)
+        offset(r = fillet_vis) offset(delta = -fillet_vis)
+          square([z1 - z0, w], center = true);
+}
+
 module yoke_fix_ear() {
   for (s = [-1, 1])
     difference() {
-      hull() {
-        translate([s * cowl_fix_ear_x0, cowl_fix_y, (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
-          rotate([0, s * 90, 0])
-            cylinder(d = cowl_fix_ear_z1 - cowl_fix_ear_z0, h = eps);
-        translate([s * cowl_fix_ear_x1, cowl_fix_y, (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
-          rotate([0, -s * 90, 0])
-            cylinder(d = cowl_fix_ear_z1 - cowl_fix_ear_z0, h = eps);
-        // ⚠ center=true centres on ALL THREE axes. Placing this at
-        // cowl_fix_ear_z0 (as a first version did) put half the cube's own
-        // height BELOW it — the exported yoke reached z=-3.50, i.e. into the
-        // display, while cowl_fix_ear_z0's own assert (which reads the
-        // parameter, not the part) stayed green. The bbox gate in
-        // tools/build.sh is what catches this class; the fix is to centre on
-        // the ear's own mid-height.
-        translate([s * cowl_fix_ear_x0, cowl_fix_y,
-                   (cowl_fix_ear_z0 + cowl_fix_ear_z1)/2])
-          cube([eps, cowl_fix_ear_w, cowl_fix_ear_z1 - cowl_fix_ear_z0], center = true);
+      union() {
+        // root -> mid: flush within the plate's own thickness, so it cannot
+        // reach over the upper M5's socket sweep.
+        hull() {
+          fix_ear_wp(s * cowl_fix_ear_root_x, cowl_fix_y,
+                     cowl_fix_ear_root_w, 0.5, yoke_t);
+          fix_ear_wp(s * cowl_fix_ear_mid_x, cowl_fix_y,
+                     cowl_fix_ear_mid_w, 0.5, yoke_t);
+        }
+        // mid -> boss: the cantilever proper, rising to the screw's height.
+        hull() {
+          fix_ear_wp(s * cowl_fix_ear_mid_x, cowl_fix_y,
+                     cowl_fix_ear_mid_w, 0.5, yoke_t);
+          fix_ear_wp(s * cowl_fix_ear_x1, cowl_fix_y, cowl_fix_ear_w,
+                     cowl_fix_ear_z0, cowl_fix_ear_z1);
+        }
       }
-      // ⭐ Heat-set insert pocket, entered from the ear's own OUTER face —
-      // the same face the cowl's pad sits against, so the iron reaches it
-      // with the yoke on the bench and nothing else in the way.
+      // Heat-set insert pocket, entered from the ear's own OUTER face -- the
+      // same face the cowl's pad sits against, so the iron reaches it with
+      // the yoke on the bench and nothing else in the way.
       translate([s * (cowl_fix_ear_x1 + eps), cowl_fix_y, cowl_fix_z])
         rotate([0, -s * 90, 0])
           cylinder(d = insert_m5_pocket_d, h = insert_m5_pocket_h + eps);
@@ -3546,6 +3590,7 @@ else if (part == "spline_test") spline_test();
 else if (part == "pivot_puck_test") pivot_puck_test();
 else if (part == "yoke_leg_test") yoke_leg_test();
 else if (part == "yoke_plate_test") yoke_plate_test();
+else if (part == "yoke_ear_test") yoke_fix_ear();
 else if (part == "yoke") yoke();
 else if (part == "arm") arm();
 else if (part == "cap") cap();

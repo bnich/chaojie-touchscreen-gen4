@@ -15,9 +15,23 @@ passed it. That is the third defect in this project found that way.
 
     A section scan is only as honest as the plane it cuts on.
 
-So this does not pick a plane. It sweeps the cutting plane through every
-angle in the Y-Z plane and reports the smallest section that genuinely
-SEPARATES two named points — one at the load's origin, one at its
+`--sweep all` samples plane normals over a whole hemisphere instead of only
+within the Y-Z plane; use it whenever the load path is not confined to one
+plane.
+
+⛔ BUT A PLANAR SECTION CANNOT MEASURE A CORNER GRAZE, AT ANY ANGLE. When the
+yoke grew side ears for the cowl, one was joined to the bearing plate over
+**2.3 mm^3** out of its own 6670 -- effectively floating -- and this tool
+reported a healthy 112 mm^2 on the hemisphere sweep. It is not a blind spot in
+the sweep: the plane that comes closest to separating an ear also slices a
+large area of PLATE that carries none of the ear's load, and the cut reports
+that area. Sections measure a neck; they cannot measure whether two solids are
+really one.
+  ⭐ For "is this feature actually attached", measure the SHARED VOLUME of the
+two solids instead -- tools/build.sh's own COWL EAR BOND gate.
+
+So this does not pick a plane. It sweeps the cutting plane and reports the
+smallest section that genuinely SEPARATES two named points — one at the load's origin, one at its
 destination. "Separates" is verified, not assumed: the part is cut at the
 plane and the piece containing the destination must not also contain the
 origin. Without that check the search just finds the part's own edges, where
@@ -25,7 +39,8 @@ a plane clips a corner and the area tends to zero.
 
 Usage:
     check_throat.py PART.stl --from X,Y,Z --to X,Y,Z [--min MM2]
-                    [--clip-x-min V] [--step DEG] [--offset-step MM]
+                    [--clip-x-min V] [--sweep yz|all] [--step DEG]
+                    [--offset-step MM]
 
 Both --from and --to must be points INSIDE the solid; the script says so if
 they are not, rather than reporting a meaningless number.
@@ -62,12 +77,30 @@ def _separates(mesh, n, d, origin, dest):
     return False
 
 
-def throat(mesh, origin, dest, step_deg, offset_step, thickness=0.4, cap=80):
-    """Smallest verified separating section, sweeping the plane's angle."""
+def _directions(sweep, step_deg):
+    """Candidate plane normals."""
+    if sweep == "yz":
+        return [np.array([0.0, -math.cos(math.radians(d)), math.sin(math.radians(d))])
+                for d in np.arange(0.0, 90.0, step_deg)]
+    # A Fibonacci hemisphere: even coverage, no pole clustering, and it
+    # includes directions with an X component -- which the yz sweep never did.
+    n = max(16, int(round(180.0 / step_deg)))
+    ga = math.pi * (3.0 - math.sqrt(5.0))
+    out = []
+    for i in range(n):
+        z = 1.0 - (i + 0.5) / n          # 1 .. 0, upper hemisphere only
+        r = math.sqrt(max(0.0, 1.0 - z * z))
+        a = ga * i
+        out.append(np.array([r * math.cos(a), r * math.sin(a), z]))
+    return out
+
+
+def throat(mesh, origin, dest, step_deg, offset_step, thickness=0.4, cap=80,
+           sweep="yz"):
+    """Smallest verified separating section, sweeping the plane's normal."""
     candidates = []
-    for deg in np.arange(0.0, 90.0, step_deg):
-        th = math.radians(deg)
-        n = np.array([0.0, -math.cos(th), math.sin(th)])
+    for n in _directions(sweep, step_deg):
+        deg = float(np.degrees(math.atan2(n[2], -n[1])) if sweep == "yz" else 0.0)
         if n @ origin > n @ dest:
             n = -n
         lo, hi = n @ origin, n @ dest
@@ -104,6 +137,9 @@ def main():
     ap.add_argument("--min", type=float, default=0.0, help="floor, mm^2")
     ap.add_argument("--clip-x-min", type=float, default=None,
                     help="keep only x >= V, to isolate one of a mirrored pair")
+    ap.add_argument("--sweep", choices=("yz", "all"), default="yz",
+                    help="'yz' sweeps the normal in the Y-Z plane; 'all' samples "
+                         "a whole hemisphere, including normals along X")
     ap.add_argument("--step", type=float, default=3.0, help="angle step, degrees")
     ap.add_argument("--offset-step", type=float, default=1.0, help="offset step, mm")
     ap.add_argument("--label", default="")
@@ -124,15 +160,17 @@ def main():
                   f"Pick a point in real material, or the search is meaningless.")
             return 2
 
-    area, deg, off = throat(m, a.origin, a.dest, a.step, a.offset_step)
+    area, deg, off = throat(m, a.origin, a.dest, a.step, a.offset_step,
+                            sweep=a.sweep)
     tag = f" ({a.label})" if a.label else ""
     if area is None:
         print(f"    CANNOT MEASURE{tag}: no verified separating plane found. "
               f"Widen --step/--offset-step, or check the two points really are "
               f"on opposite sides of a load path.")
         return 2
-    print(f"    throat{tag}: {area:7.1f} mm^2   "
-          f"(cut plane {deg:.0f} deg from Y toward Z, offset {off:.1f})")
+    where = (f"cut plane {deg:.0f} deg from Y toward Z, offset {off:.1f}"
+             if a.sweep == "yz" else f"offset {off:.1f} on a swept normal")
+    print(f"    throat{tag}: {area:7.1f} mm^2   ({where})")
     if area < a.min:
         print(f"    FAIL: below the {a.min:.0f} mm^2 floor. The load path has a "
               f"thin spot that a single-axis section scan will not see.")

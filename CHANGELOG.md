@@ -64,6 +64,31 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   past the glass).
 
 ### Fixed
+- **The cowl's side ears were barely attached to the yoke (found by eye, 2026-09-15).** Owner, from
+  the top view: *"the new ears are barely connected."* Measured: each ear shared **2.3 mm³** with the
+  bearing plate, out of its own 6670 mm³. It was effectively a floating wing touching at a corner.
+  **Cause: the plate is a truss, not a rectangle**, and its outer edge runs diagonally — measured on
+  `yoke-plate-test.stl` it reaches x=51.5 at y=+6, x=46.0 at y=−4 and x=39.0 at y=−12. The ear was
+  placed at y=−4 starting at x=51, which put its root **5 mm outboard of the plate altogether**.
+  **Fixed** by moving the joint to **y=+6**, the plate's own widest line, and rebuilding the ear as
+  three hulled stations instead of a constant-section bar: a root at x=40 buried inside the plate, a
+  mid station at x=49 still flush within `yoke_t`, then the cantilever out to the boss at x=71.8. The
+  root→mid leg stays at or below `yoke_t` deliberately — above it lies the Ø9.5 socket sweep of the
+  upper M5 at (40.5, 6.09), and a rib crossing that makes the display bolt impossible to drive
+  (asserted). Bond **2.3 → 2607.8 mm³** (30.5 % of the ear now inside the plate); minimum section
+  along the run 84.1 → 110.8 mm².
+  ⛔ **No section scan can catch this, at any angle.** `check_throat.py` was extended with `--sweep
+  all` (Fibonacci-hemisphere plane normals, including normals along X, which the Y-Z sweep never
+  tried) and it still reported a healthy **112 mm²** on the broken geometry. That is not a gap in the
+  sweep: the plane that comes closest to separating an ear also slices a large area of *plate* that
+  carries none of the ear's load, and the cut reports that area. **A section measures a neck; it
+  cannot measure whether two solids are really one.**
+  ⭐ **New cowl-ear bond gate** in `tools/build.sh`: exports the ear alone (new `yoke_ear_test` part)
+  and the plate alone, intersects them, and requires ≥1500 mm³ of shared volume. The broken geometry
+  scores 2.3.
+  ⚠️ Moving the joint also invalidated the cowl-fixing gate's hardcoded probe axis, which still read
+  y=−4 — and the gate said so immediately ("34.60 mm gap … the screw spans air"), which is the right
+  failure to get from a stale probe rather than a silent pass.
 - **The pivot bolt could not be fitted (found by eye, 2026-09-15).** Owner: *"When I looked at the
   yoke, there was no hole to feed a bolt through."* Correct, and three separate things were wrong:
   **(1) The bore did not go through.** `yoke_leg_bore()` started at the puck's own root face and ran
