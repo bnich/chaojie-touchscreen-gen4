@@ -164,6 +164,7 @@ tools/    build.sh          export every part and run every gate
           check_fixing.py   does a screw cross one part and land in the other
           check_shade.py    what the sun visor actually shades
           check_necks.py    erode the part and see what falls off
+          check_print.py    does any layer start in mid-air?
 ```
 
 ## Building from source

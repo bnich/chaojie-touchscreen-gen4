@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""Does any layer of this part start in mid-air?
+
+⭐ WHY THIS EXISTS
+------------------
+Two prints in this project failed for the same reason, and neither the
+overhang-area figure nor anything else in the build caught it:
+
+  · the yoke's cowl ears sat 0.8-2.4mm above the bed, sloping 5 degrees --
+    21mm of shelf per side printed into thin air.
+
+"Total down-facing area" does not answer the question that matters. A part
+can have a large down-facing area that is entirely fine (a horizontal bore
+ceiling bridges; a boss sits on a wall) and a tiny one that is fatal (a
+feature that begins with nothing underneath it at all).
+
+THE QUESTION THIS ASKS: slice the part, and for every island of material in
+every layer, is there ANY material in the layer below it? If not, the slicer
+is being asked to start that region in the air. It will either drop supports
+there or extrude into space -- and on a wide part in a shrinking material,
+that is where a print lets go and turns into spaghetti.
+
+Reported per part:
+  · bed contact area, and where the footprint reaches
+  · every layer that contains a floating island, with its area and position
+  · the tallest unsupported span
+
+Usage:
+    check_print.py PART.stl --up X,Y,Z [--pitch MM] [--max-island MM2]
+
+--up is the PRINT direction in the part's own coordinates, e.g. 0,0,1 if the
+part prints as exported, or 0,0,-1 if it prints flipped.
+"""
+import argparse
+import sys
+
+import numpy as np
+import trimesh
+
+
+def analyse(mesh, up, pitch):
+    from scipy import ndimage
+
+    # Rotate so the print direction is +Z, then voxelise.
+    m = mesh.copy()
+    up = np.array(up, dtype=float)
+    up /= np.linalg.norm(up)
+    if not np.allclose(up, [0, 0, 1]):
+        m.apply_transform(trimesh.geometry.align_vectors(up, [0, 0, 1]))
+    m.apply_translation(-m.bounds[0])
+
+    vox = m.voxelized(pitch=pitch).fill()
+    g = np.asarray(vox.matrix, dtype=bool)
+    nz = g.shape[2]
+    cell = pitch * pitch
+
+    bed = g[:, :, 0].sum() * cell
+    floats = []
+    for k in range(1, nz):
+        layer = g[:, :, k]
+        if not layer.any():
+            continue
+        below = g[:, :, k - 1]
+        lab, n = ndimage.label(layer)
+        for i in range(1, n + 1):
+            sel = lab == i
+            if (sel & below).any():
+                continue                      # rests on something
+            idx = np.argwhere(sel)
+            c = idx.mean(axis=0)
+            floats.append((sel.sum() * cell, k * pitch,
+                           c[0] * pitch + m.bounds[0][0],
+                           c[1] * pitch + m.bounds[0][1]))
+    return bed, floats, m.extents
+
+
+def _vec(s):
+    v = [float(x) for x in s.split(",")]
+    if len(v) != 3:
+        raise argparse.ArgumentTypeError(f"need X,Y,Z — got {s!r}")
+    return v
+
+
+def main():
+    ap = argparse.ArgumentParser(description=__doc__,
+                                 formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("stl")
+    ap.add_argument("--up", type=_vec, required=True)
+    ap.add_argument("--pitch", type=float, default=0.4)
+    ap.add_argument("--max-island", type=float, default=None,
+                    help="fail if any floating island exceeds this mm^2")
+    ap.add_argument("--label", default="")
+    a = ap.parse_args()
+
+    m = trimesh.load(a.stl, process=True)
+    if not m.is_watertight:
+        print(f"    UNTRUSTED: {a.stl} is not watertight")
+        return 2
+
+    bed, floats, ext = analyse(m, a.up, a.pitch)
+    name = a.stl.split("/")[-1]
+    tag = f" ({a.label})" if a.label else ""
+    print(f"    {name}{tag}: {ext[0]:.0f} x {ext[1]:.0f} mm footprint, "
+          f"{ext[2]:.0f} mm tall, {bed:.0f} mm^2 on the bed")
+    if not floats:
+        print("        no layer starts in mid-air")
+        return 0
+
+    floats.sort(key=lambda t: -t[0])
+    total = sum(f[0] for f in floats)
+    print(f"        {len(floats)} floating island(s), {total:.0f} mm^2 total:")
+    for area, h, cx, cy in floats[:6]:
+        print(f"          {area:7.1f} mm^2 starting {h:6.2f} mm up, "
+              f"near [{cx:7.1f} {cy:7.1f}]")
+    if len(floats) > 6:
+        print(f"          ... and {len(floats)-6} more")
+    worst = floats[0][0]
+    if a.max_island is not None and worst > a.max_island:
+        print(f"    FAIL: a {worst:.1f} mm^2 island begins with nothing under it, "
+              f"over the {a.max_island:.0f} mm^2 limit. That region is printed "
+              f"into the air.")
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

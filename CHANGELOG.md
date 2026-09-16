@@ -51,6 +51,18 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
 ### Fixed (2026-09-16)
+- **The arm's print orientation changed, after two prints in a row turned to spaghetti.** Standing
+  "bore-side down" it is a **65 mm tower on 262 mm² of bed contact — 4 mm² per mm of height**, where
+  every other part here sits between 11 and 515. Laid flat (bore vertical) it is **18 mm tall on
+  868 mm²**: 2.8× the grip, a third of the height. Cost: two 17 mm² islands start 2 mm up and want
+  support. It also settles the layer-direction question `docs/printing.md` had left open — laid flat,
+  the rib's bending load lies *within* the layer plane rather than across it.
+  ⭐ **New `tools/check_print.py`**: slices the part and asks, for every island of material in every
+  layer, whether anything is in the layer below. That is the question the total down-facing area never
+  answered — a big down-facing area can be entirely benign (a bore ceiling bridges) and a tiny one
+  fatal (a feature beginning in mid-air). Also reports bed contact against height, which is what
+  actually put the arm on the floor. All seven parts now report **no layer starting in mid-air**.
+
 
 - **The yoke's cowl-fixing ears would not print.** Owner, mid-print: *"the ears are shrinking and
   lifting off of the plate."* Not a settings problem — the geometry was asking for the impossible.
