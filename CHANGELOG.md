@@ -51,6 +51,36 @@ Dates are ISO. This project is pre-1.0; parts land as they are verified.
   Every assertion (existing and new) reconfirmed to fire when deliberately broken.
 
 ### Fixed (2026-09-16)
+- **The pivot discs stood on a tangent; they now land on a flat.** Owner: *"it fails where the
+  circular part sits off by itself"*, then *"can we make the circular part that is nearest the bed
+  connect to it flat? that would fix it"*. Right on both counts.
+  ⛔ **The tangency was deliberate, which is the galling part.** `yoke_standoff` was raised to 12
+  specifically to bring the Ø40 disc's lowest point to *exactly* z = 0 — its own comment reads
+  "touching, not clipping". That solved clipping the bed and created the worst possible first layer: a
+  40 mm disc balanced on a mathematical line. Measured, the two discs shared **184 mm²** of first-layer
+  contact, fanning to 1745 mm² by 10 mm up.
+  **Fixed** with a small foot filling the lens between bed and arc, so each disc lands on a real
+  **16 × 10.6 mm flat**. Contact at that end **184 → 339 mm²**; 230.4 mm³ of plastic for both.
+  ⚠️ **Additive on purpose.** Lowering `pivot_z` and truncating the disc gives the same flat but removes
+  the outer ~1.7 mm of about six teeth and shifts the screen height, invalidating the spline mesh
+  proofs. The foot sits under the disc's **rim**; the teeth are on its **face**, so it cannot reach
+  them. It is permanent and rotates with the tilt setting, but lives in free space either way — no
+  display and no cowl anywhere near y = −70.
+- **`tools/check_print.py` was measuring the wrong thing, twice.** It asked whether a connected
+  *region* of a layer touched anything below — first "any contact at all", then "at least 20 % held".
+  Both reported the yoke clean, because its legs and discs are joined *in-layer* to the bearing plate
+  and the plate's area swamps the fraction. What the nozzle experiences is per-position. Counting
+  unsupported **voxels** reports **2171 mm² laid over air**, including two 390 mm² patches 9.2 mm up
+  where each leg starts a 45 mm cantilever. `docs/printing.md` now states outright that the yoke
+  requires support (build plate only) rather than leaving it to a slicer preview.
+- **Brim guidance, from the measured first layer.** It is **three separate islands** — plate + ears at
+  3512 mm², and the two pivot feet at 183.7 mm² each. **Outer brim only**: it rings all three, where an
+  inner brim would only fill the three M5 clearance holes with plastic to pick out.
+- **An ASA section in `docs/printing.md`** for the curling: fan off for the first layers then 20 % max,
+  enclosure, bed 100–110 °C, Z-hop so the nozzle rides over what has already lifted — and a note that
+  halving print speed makes ASA curl slightly *worse*, since each layer has longer to contract before
+  the next lands.
+
 - **The arm's print orientation changed, after two prints in a row turned to spaghetti.** Standing
   "bore-side down" it is a **65 mm tower on 262 mm² of bed contact — 4 mm² per mm of height**, where
   every other part here sits between 11 and 515. Laid flat (bore vertical) it is **18 mm tall on

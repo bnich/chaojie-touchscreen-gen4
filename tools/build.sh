@@ -309,7 +309,10 @@ ears  = trimesh.load("stl/gen4-yoke-ear-test.stl", process=True).volume   # BOTH
 # DOUBLE-COUNTS the part of each pad buried in its own leg -- deliberate, since
 # every term here must only ever push the expectation up.
 nut_pads = 2 * math.pi * (16.0/2)**2 * (18.0/2 + 6.0/2)
-expect = plate + 2*leg + ears + nut_pads
+# The two print feet under the pivot discs, as plain boxes -- again an
+# overestimate, since most of each box is swallowed by the disc above it.
+feet = 2 * 16.0 * (6.0 + 3.0 + 1.6) * (20.0 - (400.0 - 64.0)**0.5)
+expect = plate + 2*leg + ears + nut_pads + feet
 actual = trimesh.load("stl/gen4-yoke.stl", process=True).volume
 ratio = actual / expect
 print(f"    yoke {actual:8.1f} mm^3 vs expected(overestimate) {expect:8.1f}  ratio {ratio:.3f}")

@@ -1652,6 +1652,55 @@ module yoke_nut_pad() {
       cylinder(d = yoke_nut_pad_d, h = leg_w/2 + yoke_tip_h/2);
 }
 
+/* ---- ⭐ PRINT FOOT UNDER EACH PIVOT DISC (2026-09-16) -------------------
+   ⛔ "TOUCHING, NOT CLIPPING" IS THE WORST CASE FOR PRINTING, NOT THE BEST.
+   yoke_standoff was raised to 12 specifically to bring the Ø40 pivot disc's
+   lowest point to EXACTLY z=0 — flush with the bearing face, so it could not
+   dip below the print bed. That solved the clipping problem and created a
+   worse one: a 40mm disc balanced on its own mathematical TANGENT. Measured
+   on the export, the two discs shared **184 mm² of first-layer contact**
+   between them, fanning out to 1745 mm² by 10mm up. Owner, watching it fail:
+   "it fails where the circular part sits off by itself", and then "can we
+   make the circular part that is nearest the bed connect to it flat?"
+
+   Yes. This fills the lens-shaped sliver between the bed and the disc's own
+   arc, so the disc lands on a real flat instead of a line.
+
+   ⚠️ ADDITIVE, DELIBERATELY. The alternative — lowering pivot_z and truncating
+   the disc at z=0 — gives the same flat but removes the outer ~1.7mm of about
+   six teeth and changes the pivot height, which would invalidate the spline
+   mesh proofs in docs/spline-verification.md and shift the screen height. This
+   touches neither: the foot sits UNDER the disc's rim, and the teeth are on
+   the disc's FACE, so it cannot reach them.
+   ⚠️ IT IS PERMANENT, and it rotates with the tilt setting — at the reference
+   pose it is at the bottom of the pivot, and at other angles it sits wherever
+   that click puts it. It lives in free space either way: at y=pivot_y there is
+   no display (the display stops at y=-47.49) and no cowl.                  */
+pivot_foot_w = 16;   // chord width, Y. The contact this buys is
+                     // pivot_foot_w x (the disc stack's own X thickness).
+// Height is DERIVED from the chord, not chosen: the box's top face has to
+// meet the disc's arc exactly at y = pivot_y +- pivot_foot_w/2, or it either
+// stands proud of the rim or leaves a step under it.
+pivot_foot_h = spline_od/2 - sqrt(pow(spline_od/2, 2) - pow(pivot_foot_w/2, 2));
+
+assert(pivot_foot_w < spline_od - 4,
+  str("PIVOT FOOT WIDER THAN ITS OWN DISC: pivot_foot_w (", pivot_foot_w,
+      ") must stay well inside spline_od (", spline_od, ") — past that the ",
+      "foot stops being a sliver under the rim and becomes a slab hanging ",
+      "off the side of it."));
+assert(pivot_z - spline_od/2 + pivot_foot_h > 0.8,
+  str("PIVOT FOOT TOO SHALLOW TO PRINT: it gives only ",
+      pivot_z - spline_od/2 + pivot_foot_h, "mm of flat. Under about 0.8mm ",
+      "the first layer is still chasing a near-tangent and the disc is back ",
+      "to standing on a line."));
+
+module yoke_pivot_foot() {
+  translate([pivot_x_r,
+             pivot_y - pivot_foot_w/2,
+             pivot_z - spline_od/2])
+    cube([yoke_tip_h + base_female + spline_h, pivot_foot_w, pivot_foot_h]);
+}
+
 module yoke_leg_bore() {
   translate([pivot_x_r - leg_w/2 - eps, pivot_y, pivot_z])
     rotate([0, 90, 0])
@@ -1692,6 +1741,10 @@ module yoke() {
       // Flat seats for the two pivot nuts — see yoke_nut_pad()'s own comment.
       yoke_nut_pad();
       mirror([1, 0, 0]) yoke_nut_pad();
+
+      // ⭐ And a flat for each pivot disc to land on when printing.
+      yoke_pivot_foot();
+      mirror([1, 0, 0]) yoke_pivot_foot();
 
       // 3. ⭐ The two ears the COWL screws into (2026-09-15). The cowl had
       //    no working fixing at all before this — see cowl_fix_pad()'s own

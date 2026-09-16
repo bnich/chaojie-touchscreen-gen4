@@ -80,10 +80,14 @@ the far corners first.
 
 ### ⛔ The yoke REQUIRES support — turn it on
 
-Measured with `tools/check_print.py`: **2386 mm² of the yoke is laid over air**, including two
+Measured with `tools/check_print.py`: **2171 mm² of the yoke is laid over air**, including two
 **390 mm² patches 9.2 mm up**, where each leg begins a 45 mm horizontal cantilever out to its pivot.
-And each Ø40 spline disc stands on its own **tangent** — the two of them share just 184 mm² of first
--layer contact, fanning out to 1745 mm² by 10 mm up.
+
+⭐ **The pivot discs now land on a flat** (2026-09-16). They used to stand on their own mathematical
+tangent — `yoke_standoff` had been set to bring the Ø40 disc's lowest point to *exactly* z=0, which
+avoided clipping the bed and created the worst possible first layer: a 40 mm disc balanced on a line,
+the two of them sharing 184 mm² of contact. A small foot now fills the sliver between bed and arc, so
+each disc lands on a real **16 × 10.6 mm flat**: contact at that end went **184 → 339 mm²**.
 
 Use **support on build plate only** (everything needing it sits over bare bed), and keep a brim.
 Without support those legs droop, and the drooped material is what the nozzle then catches.
@@ -97,7 +101,11 @@ first, then the nozzle strikes the raised edge and walks the part off the bed.
   its own, and this is the most common single cause.
 - **Enclosure, lid shut, no draught** — passive 40–50 °C in the chamber is enough.
 - **Bed 100–110 °C, held all print.** Clean it with IPA; ASA lifts off finger oil long before glass.
-- **Brim 10–15 mm.** On a footprint this wide it is what holds the corners down.
+- **Brim 10–15 mm, OUTER ONLY.** The yoke's first layer is **three separate islands** — the plate
+  and its ears at 3512 mm², and the two pivot feet at **183.7 mm² each**, alone out at (±23, −70). An
+  outer brim rings all three, which is what those two small ones need. ⛔ **Not inner or both**: the
+  only holes in that layer are the three M5 clearance holes, so an inner brim just fills the bolt
+  holes with material you then have to pick out.
 - **Z-hop 0.2–0.4 mm on travel.** This does not stop curling, but it stops the nozzle *hitting* what
   has curled — which is the difference between a blemish and a part on the floor.
 - First layer slower, nozzle +10 °C, a little extra squish.
