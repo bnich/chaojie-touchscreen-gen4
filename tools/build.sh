@@ -32,10 +32,28 @@ mkdir -p stl renders
 # parts implemented so far; extend as they land
 PARTS=(gauge spline_test yoke arm cap cowl brow_test insert_coupon)   # extend as parts land
 
+# ⛔ AN UNDEFINED VARIABLE IS ONLY A *WARNING* IN OPENSCAD, AND IT EXITS 0.
+# Found 2026-09-17: two new top-level assignments were placed earlier in the
+# file than the variables they read, so both silently evaluated to `undef`,
+# the waypoints that used them collapsed, and the part still exported with a
+# plausible bounding box and CGAL `Volumes: 2`. OpenSCAD said
+#   WARNING: Ignoring unknown variable 'arm_pivot_y'
+# and nothing here was looking. Top-level assignments resolve in FILE ORDER
+# (module bodies do not, which is why the same expression works inside one).
+# Any WARNING now fails the build.
 for part in "${PARTS[@]}"; do
   out="stl/gen4-${part//_/-}.stl"
   echo "--- $part"
-  openscad -o "$out" -D "part=\"$part\"" "$SRC"
+  log="$(mktemp "${TMPDIR:-/tmp}/gen4-export.XXXXXX.log")"
+  openscad -o "$out" -D "part=\"$part\"" "$SRC" 2>&1 | tee "$log"
+  if grep -qE '^(WARNING|ERROR)' "$log"; then
+    echo "    FAIL: openscad emitted a WARNING or ERROR exporting '$part'."
+    echo "    An undefined variable is only a WARNING here and still exits 0 —"
+    echo "    see the note above this loop. Treated as fatal."
+    grep -E '^(WARNING|ERROR)' "$log" | head -8
+    rm -f "$log"; exit 1
+  fi
+  rm -f "$log"
   python3 tools/check_stl.py "$out"
 done
 

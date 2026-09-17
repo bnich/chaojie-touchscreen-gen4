@@ -1875,6 +1875,27 @@ assert(clamp_od - bore_at(clamp_x0) >= 4,
 arm_seat_theta = 0;
 
 arm_pivot_y = clamp_x0 + clamp_w/2;   // pivot centre, along the bar axis
+
+// ⭐ Where the rising rib's TOP sits in Y — DERIVED from the spline, not
+// chosen, so it cannot drift back into the mating face. The male spline's
+// base is rooted at arm_pivot_y and grows AWAY from the arm (-Y), so any arm
+// material at y >= arm_pivot_y is behind it and can never reach the female;
+// anything below that is inside the joint.
+//   ⚠ DEFINED HERE, NOT UP WITH clamp_riser_y0/y1 WHERE IT BELONGS
+// TOPICALLY. It needs arm_pivot_y and arm_tip_h, and OpenSCAD resolves
+// top-level assignments in file order: placed earlier it silently evaluated
+// to `undef`, the two waypoints collapsed, and the part still exported with
+// a plausible bbox and CGAL `Volumes: 2`. OpenSCAD said so only as a
+// WARNING, which tools/build.sh did not grep for until this was found — it
+// does now.
+clamp_riser_top_y0 = arm_pivot_y;
+clamp_riser_top_y1 = arm_pivot_y + arm_tip_h;
+assert(clamp_riser_top_y0 >= arm_pivot_y,
+  str("RIB TOP REACHES INTO THE SPLINE MATE: clamp_riser_top_y0 (",
+      clamp_riser_top_y0, ") must stay at or behind the male spline's own ",
+      "root plane, arm_pivot_y (", arm_pivot_y, "). Anything in front of it ",
+      "is in the space the yoke's female disc occupies — measured at 3.45mm ",
+      "of interference when the rib ran to clamp_riser_y0=2."));
                     // (this part's own Y) — the clamp's own Y-midpoint. ⭐ NO
                     // CRANK any more (2026-09-15 two-clamp rework): the old
                     // single arm cranked this inboard so its one spline
@@ -2080,9 +2101,45 @@ module ear_cuts(arm_side) {
    axis is Y here, unaffected by a Z flip) — see the rib comment below for
    why the rib itself is built as a riser + bridge rather than one diagonal,
    which is the detail that actually decides whether this needs support. */
+/* ---- ⛔ THE MATING KEEP-OUT (2026-09-17) --------------------------------
+   The volume the yoke's female spline disc sweeps. Nothing on the arm but the
+   male spline itself may occupy it, so arm() subtracts this from everything
+   else and unions the spline back on afterwards.
+
+   WHY IT EXISTS. Owner, looking at the part: "there is a solid rectangle that
+   will prevent the arm grooves from interlocking with the yoke grooves."
+   Right — the rising rib ran from y=2 to y=16 while the male spline's root
+   plane is y=arm_pivot_y=9, so 7mm of it stood proud of the mating face.
+   Measured by rod probe in the assembled frame: **3.45mm of interference**
+   over a ~120 degree sector.
+   ⚠️ THE OBVIOUS FIX WAS NOT ENOUGH. Narrowing the rib's own top waypoints to
+   y=9..15 dropped it to 1.10mm and no further, because hull() spans BETWEEN
+   its waypoints: a rib that is clear at the waypoint's own z=34 is still
+   inside the disc at z=30. Fixing waypoint coordinates one at a time is the
+   losing game ../CLAUDE.md warns about under "guard the shared function, not
+   the call site". This guards the whole class in one place.
+
+   ⚠️ IT MUST NOT REACH THE CLAMP TUBE, which is why the clearance is small and
+   asserted rather than generous.                                          */
+mate_clear = 0.4;   // radial air between the female disc's own Ø and anything
+                    // of the arm's that is not the spline.
+assert(arm_len - (spline_od/2 + mate_clear) > clamp_od/2,
+  str("MATING KEEP-OUT REACHES THE CLAMP: it spans down to z=",
+      arm_len - (spline_od/2 + mate_clear), " and the clamp tube's own top is ",
+      clamp_od/2, ". It would cut the bar clamp in half."));
+
+module arm_mate_keepout() {
+  translate([0, arm_pivot_y, arm_len])
+    rotate([90, 0, 0])
+      cylinder(d = spline_od + 2 * mate_clear,
+               h = spline_seat + arm_tip_h + 20);
+}
+
 module arm() {
   difference() {
     union() {
+      difference() {
+        union() {
       clamp_od_half(upper = true);
       ears(upper = true);
 
@@ -2143,8 +2200,23 @@ module arm() {
       hull() {
         taper_wp(0, arm_w, clamp_riser_y0, clamp_od/2 - 5, clamp_od/2 + 3);
         taper_wp(0, arm_w, clamp_riser_y1, clamp_od/2 - 5, clamp_od/2 + 3);
-        taper_wp(0, arm_w, clamp_riser_y0, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
-        taper_wp(0, arm_w, clamp_riser_y1, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        // ⭐ THE RIB NARROWS IN Y AS IT RISES (2026-09-17). Its top pair used
+        // to sit at clamp_riser_y0..y1 (2..16) like its root, making the whole
+        // riser one constant-section box — and 7mm of that box stood PROUD OF
+        // THE MALE SPLINE'S OWN ROOT PLANE, straight into the space the yoke's
+        // female disc occupies. Owner, looking at the part: "there is a solid
+        // rectangle that will prevent the arm grooves from interlocking with
+        // the yoke grooves." Exactly right, and it is a rectangle because
+        // taper_wp()'s own profile is one.
+        //   Measured in the assembled frame by rod probe (the method
+        // docs/spline-verification.md mandates): 3.45mm of interference over a
+        // ~120 degree sector, centred on the rib's own side. The joint could
+        // not close.
+        //   The wide root stays -- that is the 2026-09-15 waist fix and it is
+        // still needed at the clamp. Only the top narrows, to the spline's own
+        // root plane, where the tip puck already provides this exact Y-span.
+        taper_wp(0, arm_w, clamp_riser_top_y0, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
+        taper_wp(0, arm_w, clamp_riser_top_y1, arm_len - arm_tip_h - 5, arm_len - arm_tip_h + 3);
       }
       // ⚠ DM-6 RE-DERIVED: ending waypoint moves from arm_pivot_y to
       // arm_pivot_y+arm_tip_h — the puck now grows along Y (below), so its
@@ -2171,6 +2243,20 @@ module arm() {
           translate([0, 0, arm_ch - eps])
             cylinder(d = spline_od, h = arm_tip_h - arm_ch + eps);
         }
+    }
+    // ⛔ MATING KEEP-OUT — the guard that makes this correct BY CONSTRUCTION.
+    // Narrowing the rib's top waypoints was not enough: hull() spans BETWEEN
+    // waypoints, so a rib that is clear at z=34 is still inside the disc's
+    // envelope at z=30, and the measured interference only fell from 2.45mm
+    // to 1.10mm. Chasing coordinates one at a time is the same losing game
+    // ../CLAUDE.md's "guard the shared function, not the call site" warns
+    // about. This removes the whole volume the yoke's female disc sweeps,
+    // from every part of the arm at once, and no future feature can creep
+    // back into it.
+    arm_mate_keepout();
+      }
+  // The male spline is unioned AFTER that subtraction — it is the one thing
+  // that is supposed to live in the mating envelope.
       translate([0, arm_pivot_y, arm_len])
         rotate([90, 0, 0])
           face_spline(male = true, base = base_male);
