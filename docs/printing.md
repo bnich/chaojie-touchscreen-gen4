@@ -95,7 +95,11 @@ Measured with `tools/check_print.py`: **2171 mm² of the yoke is laid over air**
 tangent — `yoke_standoff` had been set to bring the Ø40 disc's lowest point to *exactly* z=0, which
 avoided clipping the bed and created the worst possible first layer: a 40 mm disc balanced on a line,
 the two of them sharing 184 mm² of contact. A small foot now fills the sliver between bed and arc, so
-each disc lands on a real **16 × 10.6 mm flat**: contact at that end went **184 → 339 mm²**.
+each disc lands on a real **20 × 6 mm flat**: contact at that end went **184 → 317 mm²**.
+⛔ **The foot stops at the female spline's root plane.** A first version ran the full disc
+stack and filled the tooth valleys over about 40° — the yoke read x=28.45 in the bottom sector
+where every other angle reads 26.75 — so the male teeth had nowhere to go. A print aid that
+blocks the joint it is printed for is not an aid.
 
 Use **support on build plate only** (everything needing it sits over bare bed), and keep a brim.
 Without support those legs droop, and the drooped material is what the nozzle then catches.

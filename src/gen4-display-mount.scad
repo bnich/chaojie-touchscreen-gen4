@@ -1676,13 +1676,20 @@ module yoke_nut_pad() {
    pose it is at the bottom of the pivot, and at other angles it sits wherever
    that click puts it. It lives in free space either way: at y=pivot_y there is
    no display (the display stops at y=-47.49) and no cowl.                  */
-pivot_foot_w = 16;   // chord width, Y. The contact this buys is
-                     // pivot_foot_w x (the disc stack's own X thickness).
+pivot_foot_w = 20;   // chord width, Y. The contact this buys is
+                     // pivot_foot_w x the PUCK's own X thickness -- 20, not the
+                     // original 16, to win back the area the shortened length
+                     // below gives up.
 // Height is DERIVED from the chord, not chosen: the box's top face has to
 // meet the disc's arc exactly at y = pivot_y +- pivot_foot_w/2, or it either
 // stands proud of the rim or leaves a step under it.
 pivot_foot_h = spline_od/2 - sqrt(pow(spline_od/2, 2) - pow(pivot_foot_w/2, 2));
 
+assert(pivot_foot_h < yoke_tip_h,
+  str("PIVOT FOOT TALLER THAN THE PUCK IT SITS UNDER: pivot_foot_h (",
+      pivot_foot_h, ") vs yoke_tip_h (", yoke_tip_h, "). Widening ",
+      "pivot_foot_w deepens the foot fast -- check it is still a sliver under ",
+      "the rim, not a block beside it."));
 assert(pivot_foot_w < spline_od - 4,
   str("PIVOT FOOT WIDER THAN ITS OWN DISC: pivot_foot_w (", pivot_foot_w,
       ") must stay well inside spline_od (", spline_od, ") — past that the ",
@@ -1694,11 +1701,20 @@ assert(pivot_z - spline_od/2 + pivot_foot_h > 0.8,
       "the first layer is still chasing a near-tangent and the disc is back ",
       "to standing on a line."));
 
+// ⛔ IT STOPS AT THE FEMALE SPLINE'S ROOT PLANE. The first version ran the
+// full disc stack, yoke_tip_h + base_female + spline_h, which put foot
+// material at x=28.45 in the bottom sector where every other angle reads
+// 26.75 -- i.e. it FILLED THE TOOTH VALLEYS over about 40 degrees, and the
+// male teeth had nowhere to go. Owner: "there is material in the way of the
+// yoke mating with the arm correctly and flat." A print aid that blocks the
+// joint it is printed for is not an aid.
+//   The puck's own thickness is all it may have. Everything from
+// pivot_x_r + yoke_tip_h outward belongs to the spline.
 module yoke_pivot_foot() {
   translate([pivot_x_r,
              pivot_y - pivot_foot_w/2,
              pivot_z - spline_od/2])
-    cube([yoke_tip_h + base_female + spline_h, pivot_foot_w, pivot_foot_h]);
+    cube([yoke_tip_h, pivot_foot_w, pivot_foot_h]);
 }
 
 module yoke_leg_bore() {

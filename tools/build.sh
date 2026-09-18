@@ -329,7 +329,7 @@ ears  = trimesh.load("stl/gen4-yoke-ear-test.stl", process=True).volume   # BOTH
 nut_pads = 2 * math.pi * (16.0/2)**2 * (18.0/2 + 6.0/2)
 # The two print feet under the pivot discs, as plain boxes -- again an
 # overestimate, since most of each box is swallowed by the disc above it.
-feet = 2 * 16.0 * (6.0 + 3.0 + 1.6) * (20.0 - (400.0 - 64.0)**0.5)
+feet = 2 * 20.0 * 6.0 * (20.0 - (400.0 - 100.0)**0.5)
 expect = plate + 2*leg + ears + nut_pads + feet
 actual = trimesh.load("stl/gen4-yoke.stl", process=True).volume
 ratio = actual / expect
