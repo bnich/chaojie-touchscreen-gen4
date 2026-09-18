@@ -499,3 +499,32 @@ a volume check or a probe that samples the interior (not just the
 boundary) can tell them apart. Worth carrying forward to any future
 `hull()`-chain construction in this file: manifold-ness and solid fill are
 independent properties, and both need their own check.
+
+## ⚠️ The teeth must be coarser than the nozzle, and nothing checked that until now
+
+A face spline's teeth are a triangular wave in **angle** at constant height, so their **pitch shrinks
+toward the bore** as the tooth count crowds into a smaller circumference. Height is constant — measured
+1.60 mm at every radius from 7 to 19 — but pitch is not.
+
+At the original `spline_id` = 12 the pitch at the bore was **0.79 mm**, making each valley 0.39 mm wide
+and 1.6 mm deep. A 0.4 mm nozzle laying a ~0.45 mm bead cannot enter that. It bridges across, the
+valleys fill, and the teeth come out progressively shallower toward the centre. Found by the owner on a
+printed arm: *"why does the height lower towards the center of the circle?"* — it does not, in the
+model.
+
+⛔ **Filled valleys can hold the joint open.** Material that should be a valley floor but prints proud
+keeps the halves from seating on the real teeth — the same "will not mate flat" symptom as a mechanical
+obstruction, from a different cause.
+
+**`spline_id` is now 24**, putting the tooth ring at r = 12…20 where the finest pitch is 1.57 mm, about
+four nozzle widths. Tilt resolution is unchanged — still 48 teeth, still 7.5° per click. The band given
+up was not carrying load, because it was not reproducing.
+
+| `spline_id` | inner radius | pitch there | |
+|---|---|---|---|
+| 12 | 6 mm | 0.79 mm | unprintable |
+| 20 | 10 mm | 1.31 mm | marginal |
+| **24** | **12 mm** | **1.57 mm** | **shipped** |
+
+The model now asserts it: `spline_pitch_min >= 3.5 × spline_nozzle`. Verified to fire at both 12 and 20.
+

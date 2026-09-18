@@ -15,7 +15,7 @@ visor over the glass.
 | | |
 |---|---|
 | Printed parts | 4 distinct, **6 on the bike** (the clamp arm and cap print twice) |
-| Tilt | 48 teeth, **7.5° per click** |
+| Tilt | 48 teeth, **7.5° per click**; tooth ring r = 12…20 mm, finest pitch 1.57 mm |
 | Screen height above the bar | bottom edge **52 mm**, top edge **146 mm** |
 | Grip on the bar | **~81 mm** total, split either side of the steering axis |
 | Sun visor | **33 mm** past the glass; shades **27.7 %** of the screen at 45° off the screen normal |

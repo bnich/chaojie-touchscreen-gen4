@@ -70,7 +70,9 @@ import trimesh, math, sys
 disc = trimesh.load("/tmp/_disc_only.stl", process=True).volume
 full = trimesh.load("stl/gen4-spline-test.stl", process=True).volume
 teeth = full - disc
-expect = math.pi*(20.0**2 - 6.0**2) * (1.6/2)   # annulus x mean height of a triangular wave
+expect = math.pi*(20.0**2 - 12.0**2) * (1.6/2)  # annulus x mean height of a triangular wave
+# ⚠ the inner radius is spline_id/2 and spline_id went 12 -> 24 on 2026-09-18
+# so the teeth would print: this expectation moves with it or the gate lies.
 ratio = teeth/expect
 print(f"    teeth {teeth:8.1f} mm^3 vs expected {expect:8.1f}  ratio {ratio:.2f}")
 if not 0.9 <= ratio <= 1.15:

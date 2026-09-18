@@ -239,7 +239,33 @@ pivot_bolt_clear_d = 6.4;       // M6 clearance through both spline halves —
                                 // yoke's own bore) so Task 4's arm drills the
                                 // identical bore, not a separately-guessed one.
 spline_od  = 40;
-spline_id  = 12;                // M6 clearance + boss
+spline_id  = 24;                // ⭐ RAISED 12 -> 24 (2026-09-18) SO EVERY TOOTH
+                                // IS PRINTABLE. The teeth are a triangular wave
+                                // in THETA at constant height, so their PITCH
+                                // shrinks toward the bore as 48 of them crowd
+                                // into a smaller circumference. At the old
+                                // spline_id the pitch there was 0.79mm — each
+                                // valley 0.39mm wide and 1.6mm deep, narrower
+                                // than a 0.4mm nozzle's own bead. The printer
+                                // cannot cut that: it bridges across, the
+                                // valleys fill, and the teeth read shallower
+                                // the further in you look. Owner, on a printed
+                                // arm: "why does the height lower towards the
+                                // center of the circle?" — it does not, in the
+                                // model; measured 1.60mm at r=7 through r=19.
+                                // It is the print that cannot follow.
+                                // ⚠️ AND FILLED VALLEYS CAN HOLD THE JOINT OPEN.
+                                // Material that should be a valley floor but
+                                // prints proud keeps the two halves from
+                                // seating on the real teeth — the same "will
+                                // not mate flat" symptom as a mechanical
+                                // obstruction, from a different cause.
+                                //   At 24 the tooth ring is r=12..20 and the
+                                // pitch there is 1.57mm, about 4x the nozzle.
+                                // Tilt resolution is untouched: still 48 teeth,
+                                // still 7.5 deg per click. The band given up
+                                // was not carrying load anyway — it was not
+                                // reproducing. Asserted below.
 spline_n   = 48;                // 48 teeth = 7.5 deg steps
 spline_h   = 1.6;               // tooth height
 teeth      = true;              // false -> solid fixed-angle joint, same file
@@ -1500,6 +1526,19 @@ yoke_top_y = p(holes[0])[1] + yoke_pad_d/2;
 // expression is fine inside the module and wrong out here.
 yoke_pivot_bore_len = leg_w/2 + yoke_tip_h + base_female + spline_h + 3 * eps;
 
+// ⭐ THE CONSTRAINT THAT WAS MISSING UNTIL 2026-09-18: a face spline's teeth
+// are finest at its bore, and nothing in this file checked whether they were
+// finer than the machine that has to make them.
+spline_nozzle = 0.4;   // the nozzle this design expects to be printed on
+spline_pitch_min = 2 * PI * (spline_id/2) / spline_n;
+assert(spline_pitch_min >= 3.5 * spline_nozzle,
+  str("SPLINE TEETH FINER THAN THE NOZZLE: at the bore the tooth pitch is ",
+      spline_pitch_min, "mm, so each flank is ", spline_pitch_min/2,
+      "mm against a ", spline_nozzle, "mm nozzle. The printer bridges the ",
+      "valleys instead of cutting them, the inner teeth come out shallow, and ",
+      "material that should be a valley floor can print PROUD and hold the ",
+      "joint open. Raise spline_id (it costs no tilt resolution) or lower ",
+      "spline_n (it costs 360/n degrees per click)."));
 assert(pivot_bolt_clear_d < spline_id,
   str("PIVOT BORE TOO WIDE: exceeds the spline's own bore id — would break ",
       "into the spline's tooth root instead of just clearing the pivot bolt."));
