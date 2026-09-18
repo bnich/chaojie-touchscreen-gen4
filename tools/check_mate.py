@@ -23,10 +23,16 @@ solids that mesh must be complementary at every (r, θ) — the yoke's outermost
 material must not pass the arm's innermost. No boolean, no tooth-vs-tooth
 topology, just two independent depth readings compared.
 
-⚠️ KEEP IT SMALL. An early version fired 628 rays x 900 samples at a 6 MB mesh
-in one `contains()` call and was OOM-killed on a box with no swap — taking the
-session with it. The defaults here are ~34,000 points, which is ample to catch
-a sector-sized defect, and the query is chunked besides.
+⛔ NEVER USE mesh.contains() HERE. It crashed the owner's Claude Code session
+twice. This box has no embree, so trimesh falls back to numpy ray tests:
+contains() fires a DIAGONAL ray from every point, and a diagonal ray's
+bounding box spans much of the mesh, so the broad phase hands back thousands
+of candidate triangles per point. Memory scales as points x candidates. One
+26,400-point call against the 135k-triangle yoke exhausted a 31 GB machine
+with no swap. A 3,000-point call had survived, which is why it looked safe.
+This tool now casts ONE ray per probe, ALONG the probe line itself, and reads
+the exact surface crossings: 165 rays, and each one's bounding box is a thin
+line, so the candidate set is small. It is also exact, not sampled at 0.1 mm.
 
 ⚠️ SAMPLE OFF THE TOOTH PITCH. The teeth repeat every 7.5°, so sampling at 15°
 (exactly two pitches) hits the same phase every time and reports an identical
@@ -45,26 +51,43 @@ import numpy as np
 import trimesh
 
 
-def reach(mesh, pts_per_ray, n_rays, outermost, chunk=40000):
-    """Depth each ray reaches, as an index into the sample line.
+def intervals(mesh, origins, direction):
+    """Material intervals along each ray, as [(x_in, x_out), ...] per ray.
 
-    ⚠ CHUNKED. Querying ray by ray is far too slow, but handing trimesh every
-    sample of every ray in one call is how the first version got OOM-killed:
-    4 radii x 157 angles x 900 samples is over half a million points, and the
-    containment path allocates several arrays that size. Batch it instead.
+    Each crossing is classified by its own face normal (entering where the
+    normal opposes the ray, leaving where it agrees), not by counting hits.
+    A ray through a shared edge reports the crossing once per face, and
+    counting parity would read that as in-out-in.
     """
-    n_samp = len(pts_per_ray) // n_rays
-    hits = np.empty(len(pts_per_ray), dtype=bool)
-    for lo in range(0, len(pts_per_ray), chunk):
-        hits[lo:lo + chunk] = mesh.contains(pts_per_ray[lo:lo + chunk])
-    hits = hits.reshape(n_rays, n_samp)
-    out = np.full(n_rays, -1)
-    for i in range(n_rays):
-        h = hits[i]
-        if not h.any():
+    d = np.tile(direction, (len(origins), 1))
+    locs, ray_i, tri_i = mesh.ray.intersects_location(origins, d, multiple_hits=True)
+    out = [[] for _ in origins]
+    for i in range(len(origins)):
+        sel = ray_i == i
+        if not sel.any():
             continue
-        out[i] = (len(h) - 1 - np.argmax(h[::-1])) if outermost else np.argmax(h)
+        t = locs[sel] @ direction
+        sgn = np.sign(mesh.face_normals[tri_i[sel]] @ direction)
+        order = np.argsort(t, kind="stable")
+        inside, start, last = False, None, None
+        for tv, sv in zip(t[order], sgn[order]):
+            if last is not None and abs(tv - last) < 1e-6:
+                continue                      # same crossing, seen on 2 faces
+            last = tv
+            if sv < 0 and not inside:
+                inside, start = True, tv
+            elif sv > 0 and inside:
+                inside = False
+                out[i].append((start, tv))
     return out
+
+
+def reach(ivs, x0, x1, outermost):
+    """How far material reaches within [x0, x1], or None if it has none there."""
+    clipped = [(max(a, x0), min(b, x1)) for a, b in ivs if b > x0 and a < x1]
+    if not clipped:
+        return None
+    return max(b for _, b in clipped) if outermost else min(a for a, _ in clipped)
 
 
 def main():
@@ -79,7 +102,6 @@ def main():
     ap.add_argument("--radii", default="8,12,15,18")
     ap.add_argument("--step", type=float, default=11.0,
                     help="angle step, deg -- keep it off the 7.5 deg tooth pitch")
-    ap.add_argument("--pitch", type=float, default=0.1)
     ap.add_argument("--clearance", type=float, default=0.05,
                     help="overlap beyond this is interference, mm")
     a = ap.parse_args()
@@ -87,7 +109,6 @@ def main():
     ay, az = (float(v) for v in a.axis.split(","))
     x0, x1 = (float(v) for v in a.span.split(","))
     radii = [float(v) for v in a.radii.split(",")]
-    xs = np.arange(x0, x1, a.pitch)
     angs = np.arange(0.0, 360.0, a.step)
 
     yk = trimesh.load(a.yoke, process=True)
@@ -97,20 +118,24 @@ def main():
             print(f"    UNTRUSTED: {p} is not watertight")
             return 2
 
+    # Start every ray outside both parts, so the first crossing is an entry.
+    xs0 = min(yk.bounds[0][0], arm.bounds[0][0]) - 1.0
     rays = [(r, ang) for r in radii for ang in angs]
-    pts = np.array([[x, ay + r * math.cos(math.radians(ang)),
-                     az + r * math.sin(math.radians(ang))]
-                    for r, ang in rays for x in xs])
-    y_reach = reach(yk, pts, len(rays), outermost=True)
-    a_reach = reach(arm, pts, len(rays), outermost=False)
+    origins = np.array([[xs0, ay + r * math.cos(math.radians(ang)),
+                         az + r * math.sin(math.radians(ang))] for r, ang in rays])
+    along = np.array([1.0, 0.0, 0.0])
+    y_iv = intervals(yk, origins, along)
+    a_iv = intervals(arm, origins, along)
+    y_reach = [reach(v, x0, x1, outermost=True) for v in y_iv]
+    a_reach = [reach(v, x0, x1, outermost=False) for v in a_iv]
 
     worst, worst_at, n_bad, relief = 0.0, None, 0, []
     for i, (r, ang) in enumerate(rays):
-        if y_reach[i] < 0 or a_reach[i] < 0:
+        if y_reach[i] is None or a_reach[i] is None:
             continue
-        ov = xs[y_reach[i]] - xs[a_reach[i]]
+        ov = y_reach[i] - a_reach[i]
         if r == radii[len(radii) // 2]:
-            relief.append(xs[y_reach[i]])
+            relief.append(y_reach[i])
         if ov > a.clearance:
             n_bad += 1
             if ov > worst:

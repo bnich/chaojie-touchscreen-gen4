@@ -49,7 +49,7 @@ visor over the glass.
 | Display → yoke | **M5 × 12** socket cap | 3 | ⚠️ **No washer, never longer.** The display's thread is 5 mm deep |
 | Bar clamp, arm → cap | **M5 × 16** socket cap | 4 | Into inserts in the arm; heads counterbored into the cap's underside |
 | Cowl → yoke | **M5 × 12** socket cap | 2 | Into inserts in the yoke's side ears; heads recess below the cowl's side face |
-| Tilt pivot | **M6 × 35** + nyloc + plain washer | 2 | 26.0 mm grip, 7.3 mm into the nut |
+| Tilt pivot | **M6 × 35** + nyloc + plain washer | 2 | **One per side**, each through its own pivot only. 26.1 mm grip, 7.3 mm into the nut |
 | Heat-set inserts | **M5, Ø7 × 5 long** | 6 | 4 across the two arms (2 per arm), 2 in the yoke; buy spares |
 | Clamp bore liner | inner-tube rubber strip | 2 | Protects the bar and takes up ovality |
 

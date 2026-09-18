@@ -606,6 +606,27 @@ if rc != 0:
 if not ok:
     sys.exit(1)
 PYEOF
+# ⭐ DOES THE TILT JOINT ACTUALLY CLOSE? (added 2026-09-18)
+# ⛔ tools/check_mate.py was WRITTEN for this pair and then never wired in.
+#   It exists because the yoke-vs-arm pair was the one pair this script
+#   deliberately never intersected -- docs/spline-verification.md is right
+#   that a whole-ring boolean lies on 48 interleaved teeth -- and skipping
+#   the boolean was taken as licence to skip the CHECK, so a 3.45mm
+#   interference shipped and the owner found it by eye. A tool that is not
+#   called is not a gate.
+# ⚠ THE RADII MATTER MORE THAN THEY LOOK. spline_id went 12 -> 24 on
+#   2026-09-18, so r < 12 is no longer a bore on either half -- it is a flat
+#   land on BOTH, face to face, a contact zone that did not exist before.
+#   r=5 and r=10 are here to catch those lands meeting before the teeth do;
+#   13/16/19 walk the tooth ring itself.
+# ⚠ --step is 11 deg ON PURPOSE. The teeth repeat every 7.5, so a "round"
+#   15 deg step samples the same tooth phase every time and reports a
+#   perfectly flat face at every angle. That aliasing already produced one
+#   false all-clear in this project.
+echo "--- MATE ACCEPTANCE TEST: can the two halves of the tilt joint close? ---"
+"$PY" tools/check_mate.py stl/gen4-yoke.stl stl/_check_arm_r_positioned.stl \
+  --axis=-70,20 --span 18,34 --radii 5,10,13,16,19 --step 11 || exit 1
+
 rm -f stl/_check_arm_r_positioned.stl stl/_check_arm_l_positioned.stl stl/_check_display_stub.stl /tmp/_display_stub.scad
 
 # ⭐ THE ACCEPTANCE TEST — the one nobody ran before this rework, and the
